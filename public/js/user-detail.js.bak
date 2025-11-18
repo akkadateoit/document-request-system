@@ -4,11 +4,9 @@ document.addEventListener('DOMContentLoaded', () => {
   checkAdmin();
   loadUserDetails();
   setupEventListeners();
-  setupEditFormValidation();
 });
 
 let currentUserId = null;
-let currentUserData = null; // เก็บข้อมูลผู้ใช้ปัจจุบัน
 
 // ตั้งค่าการฟังเหตุการณ์
 function setupEventListeners() {
@@ -49,93 +47,6 @@ function setupEventListeners() {
   if (confirmResetBtn) {
     confirmResetBtn.addEventListener('click', resetUserPassword);
   }
-
-  // ปุ่มแก้ไขข้อมูลผู้ใช้
-  const editUserBtn = document.getElementById('edit-user-btn');
-  if (editUserBtn) {
-    editUserBtn.addEventListener('click', setupEditModal);
-    console.log('Edit user button listener attached');
-  } else {
-    console.error('Edit user button not found');
-  }
-
-  // ปุ่มบันทึกการแก้ไข - เพิ่ม event listener
-  const saveUserBtn = document.getElementById('save-user-btn');
-  if (saveUserBtn) {
-    saveUserBtn.addEventListener('click', (e) => {
-      console.log('Save button clicked');
-      e.preventDefault(); // ป้องกันการ submit form
-      saveUserChanges();
-    });
-    console.log('Save user button listener attached');
-  } else {
-    console.error('Save user button not found');
-  }
-
-  // เพิ่ม event listener สำหรับ form submit
-  const editUserForm = document.getElementById('edit-user-form');
-  if (editUserForm) {
-    editUserForm.addEventListener('submit', (e) => {
-      console.log('Form submitted');
-      e.preventDefault();
-      saveUserChanges();
-    });
-  }
-}
-
-// ตั้งค่าการตรวจสอบฟอร์มแก้ไขข้อมูล
-function setupEditFormValidation() {
-  // ตั้งค่าวันที่สูงสุดสำหรับวันเกิด
-  const birthDateInput = document.getElementById('edit-birth-date');
-  if (birthDateInput) {
-    const today = new Date();
-    const maxDate = today.toISOString().split('T')[0];
-    birthDateInput.setAttribute('max', maxDate);
-    
-    const minDate = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate());
-    birthDateInput.setAttribute('min', minDate.toISOString().split('T')[0]);
-  }
-  
-  // ตั้งค่าการตรวจสอบหมายเลขบัตรประชาชน/Passport
-  const idNumberInput = document.getElementById('edit-id-number');
-  if (idNumberInput) {
-    idNumberInput.addEventListener('input', function(e) {
-      const value = e.target.value.trim();
-      const parentDiv = e.target.parentNode;
-      let helpText = parentDiv.querySelector('.form-text small');
-      
-      if (!helpText) {
-        console.warn('Help text not found for id-number input');
-        return;
-      }
-      
-      if (value.length === 0) {
-        helpText.textContent = 'ไม่จำเป็นต้องกรอก - รูปแบบ: บัตรประชาชน 13 หลัก หรือ Passport 6-12 ตัวอักษร';
-        helpText.className = 'text-muted';
-        return;
-      }
-      
-      // ตรวจสอบรูปแบบ
-      if (/^[0-9]{13}$/.test(value)) {
-        helpText.textContent = '✓ รูปแบบบัตรประชาชนถูกต้อง';
-        helpText.className = 'text-success';
-      } else if (/^[A-Za-z0-9]{6,12}$/.test(value)) {
-        helpText.textContent = '✓ รูปแบบ Passport ถูกต้อง';
-        helpText.className = 'text-success';
-      } else {
-        if (value.length < 6) {
-          helpText.textContent = '⚠ หมายเลขสั้นเกินไป';
-        } else if (value.length > 13) {
-          helpText.textContent = '⚠ หมายเลขยาวเกินไป';
-        } else if (/^[0-9]+$/.test(value) && value.length !== 13) {
-          helpText.textContent = '⚠ บัตรประชาชนต้องเป็น 13 หลัก';
-        } else {
-          helpText.textContent = '⚠ รูปแบบไม่ถูกต้อง';
-        }
-        helpText.className = 'text-warning';
-      }
-    });
-  }
 }
 
 // โหลดรายละเอียดผู้ใช้
@@ -174,9 +85,6 @@ async function loadUserDetails() {
     const user = await userResponse.json();
     console.log('User details loaded:', user);
     
-    // เก็บข้อมูลผู้ใช้ไว้ใช้งาน
-    currentUserData = user;
-    
     displayUserDetails(user);
     
     // โหลดประวัติการขอเอกสารของผู้ใช้
@@ -192,7 +100,7 @@ async function loadUserDetails() {
 // แสดงรายละเอียดผู้ใช้
 function displayUserDetails(user) {
   try {
-    console.log('Displaying user details:', user);
+    console.log('Displaying user details:', user); // เพิ่ม debug log
     
     // ข้อมูลพื้นฐาน
     document.getElementById('user-student-id').textContent = user.student_id || '-';
@@ -205,6 +113,7 @@ function displayUserDetails(user) {
     const birthDateElement = document.getElementById('user-birth-date');
     if (birthDateElement) {
       if (user.birth_date) {
+        // แปลงวันที่จาก ISO format
         const birthDate = new Date(user.birth_date);
         console.log('Birth date raw:', user.birth_date, 'Parsed:', birthDate);
         
@@ -222,6 +131,8 @@ function displayUserDetails(user) {
       } else {
         birthDateElement.textContent = '-';
       }
+    } else {
+      console.error('Birth date element not found');
     }
     
     // แสดงหมายเลขบัตรประชาชน/Passport
@@ -230,6 +141,7 @@ function displayUserDetails(user) {
       if (user.id_number) {
         console.log('ID Number raw:', user.id_number);
         
+        // ซ่อนบางส่วนของหมายเลขเพื่อความปลอดภัย
         const maskedIdNumber = maskIdNumber(user.id_number);
         console.log('Masked ID Number:', maskedIdNumber);
         
@@ -251,6 +163,8 @@ function displayUserDetails(user) {
         console.log('No ID number found');
         idNumberElement.textContent = '-';
       }
+    } else {
+      console.error('ID number element not found');
     }
     
     // วันที่ลงทะเบียน
@@ -270,19 +184,11 @@ function displayUserDetails(user) {
       roleElement.innerHTML = `<span class="badge ${badgeClass}">${roleText}</span>`;
     }
     
-    // ซ่อนปุ่มลบและแก้ไขสำหรับผู้ดูแลระบบ
+    // ซ่อนปุ่มลบสำหรับผู้ดูแลระบบ
     if (user.role === 'admin') {
       const deleteBtn = document.getElementById('delete-user-btn');
       if (deleteBtn) {
         deleteBtn.style.display = 'none';
-      }
-      
-      const editBtn = document.getElementById('edit-user-btn');
-      if (editBtn) {
-        const currentUserId = localStorage.getItem('userId');
-        if (user.id.toString() !== currentUserId) {
-          editBtn.style.display = 'none';
-        }
       }
     }
     
@@ -419,132 +325,6 @@ function setupDeleteModal() {
   }
 }
 
-// ตั้งค่า Modal การแก้ไขข้อมูล
-function setupEditModal() {
-  console.log('Setting up edit modal with data:', currentUserData);
-  
-  if (!currentUserData) {
-    showAdminAlert('ไม่พบข้อมูลผู้ใช้', 'danger');
-    return;
-  }
-  
-  // กรอกข้อมูลปัจจุบันลงในฟอร์ม
-  document.getElementById('edit-student-id').value = currentUserData.student_id || '';
-  document.getElementById('edit-full-name').value = currentUserData.full_name || '';
-  document.getElementById('edit-email').value = currentUserData.email || '';
-  document.getElementById('edit-phone').value = currentUserData.phone || '';
-  document.getElementById('edit-faculty').value = currentUserData.faculty || '';
-  
-  // แปลงวันเกิดเป็นรูปแบบ YYYY-MM-DD
-  if (currentUserData.birth_date) {
-    const birthDate = new Date(currentUserData.birth_date);
-    const formattedDate = birthDate.toISOString().split('T')[0];
-    document.getElementById('edit-birth-date').value = formattedDate;
-  } else {
-    document.getElementById('edit-birth-date').value = '';
-  }
-  
-  // กรอกหมายเลขบัตร (แสดงหมายเลขเต็ม)
-  document.getElementById('edit-id-number').value = currentUserData.id_number || '';
-  
-  // รีเซ็ต help text
-  const idNumberInput = document.getElementById('edit-id-number');
-  if (idNumberInput) {
-    const helpText = idNumberInput.parentNode.querySelector('.form-text small');
-    if (helpText) {
-      helpText.textContent = 'ไม่จำเป็นต้องกรอก - รูปแบบ: บัตรประชาชน 13 หลัก หรือ Passport 6-12 ตัวอักษร';
-      helpText.className = 'text-muted';
-    }
-  }
-  
-  console.log('Edit modal setup complete');
-}
-
-// บันทึกการแก้ไขข้อมูลผู้ใช้
-async function saveUserChanges() {
-  console.log('saveUserChanges called');
-  
-  try {
-    const token = localStorage.getItem('token');
-    
-    if (!token) {
-      console.error('No token found');
-      window.location.href = '../login.html';
-      return;
-    }
-    
-    if (!currentUserId) {
-      console.error('No current user ID');
-      showAdminAlert('ไม่พบ ID ผู้ใช้', 'danger');
-      return;
-    }
-    
-    // ตรวจสอบฟอร์ม
-    const form = document.getElementById('edit-user-form');
-    if (!form.checkValidity()) {
-      console.log('Form validation failed');
-      form.reportValidity();
-      return;
-    }
-    
-    // รวบรวมข้อมูลจากฟอร์ม
-    const formData = {
-      full_name: document.getElementById('edit-full-name').value.trim(),
-      email: document.getElementById('edit-email').value.trim(),
-      phone: document.getElementById('edit-phone').value.trim(),
-      faculty: document.getElementById('edit-faculty').value.trim() || null,
-      birth_date: document.getElementById('edit-birth-date').value || null,
-      id_number: document.getElementById('edit-id-number').value.trim() || null
-    };
-    
-    console.log('Form data collected:', formData);
-    
-    // ตรวจสอบรูปแบบหมายเลขบัตรประชาชน/Passport (ถ้ามีการกรอก)
-    if (formData.id_number) {
-      if (!/^[0-9]{13}$/.test(formData.id_number) && !/^[A-Za-z0-9]{6,12}$/.test(formData.id_number)) {
-        showAdminAlert('รูปแบบหมายเลขบัตรประชาชนหรือ Passport ไม่ถูกต้อง', 'danger');
-        return;
-      }
-    }
-    
-    console.log('Sending PUT request to:', `/api/admin/user/${currentUserId}`);
-    
-    const response = await fetch(`/api/admin/user/${currentUserId}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(formData)
-    });
-    
-    console.log('Response status:', response.status);
-    
-    const data = await response.json();
-    console.log('Response data:', data);
-    
-    if (response.ok) {
-      showAdminAlert('บันทึกข้อมูลผู้ใช้สำเร็จ', 'success');
-      
-      // ปิด Modal
-      const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
-      if (modal) {
-        modal.hide();
-      }
-      
-      // โหลดข้อมูลใหม่
-      await loadUserDetails();
-      
-    } else {
-      showAdminAlert(data.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูลผู้ใช้', 'danger');
-    }
-    
-  } catch (error) {
-    console.error('Error saving user changes:', error);
-    showAdminAlert('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์', 'danger');
-  }
-}
-
 // ลบผู้ใช้
 async function deleteUser() {
   try {
@@ -646,4 +426,3 @@ async function resetUserPassword() {
 window.loadUserDetails = loadUserDetails;
 window.deleteUser = deleteUser;
 window.resetUserPassword = resetUserPassword;
-window.saveUserChanges = saveUserChanges;
