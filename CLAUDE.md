@@ -120,6 +120,8 @@ Each page loads `language.js`, then `main.js`, then page-specific scripts. The s
 
 `main.js`, `admin.js` and `admin-common.js` each define their own `checkAdmin`, `createStatusBadge`, `translateStatus` and `formatDate`, plus `admin.js`/`admin-common.js` both define `updateRequestStatus` and `setupStatusUpdateModal`. Whichever script loads last wins, so change the copy that the page actually uses (see the table).
 
+The admin navbar is copied into every admin page (`dashboard`, `requests`, `users`, `reports`, `request-detail`, `user-detail`). The copies must stay identical except for which link has `active`, so when you change it, change all six. Admin list pages use a full-width `container-fluid px-3 px-lg-4`.
+
 Dead files that no page loads: `js/reports.js`, `*.bak*`, `*.save`, `*.newrangsit`, `request.bak.html`, `admin/user-detail2.html`, `testjson.html`, and `routes/*.bak.js`. `admin/line-test.html` calls `/api/admin/test-line-notification`, which doesn't exist; the working test endpoint is `/api/test-line`.
 
 ### LINE notifications

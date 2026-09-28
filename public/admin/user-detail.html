@@ -17,28 +17,26 @@
   <link rel="stylesheet" href="../css/responsive.css">
 </head>
 <body>
+  <!-- navbar ของหน้า admin: ใช้ชุดเดียวกันทุกหน้า ต่างกันแค่เมนู active -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container">
-      <a class="navbar-brand" href="#" data-i18n="navbar.title">ระบบขอเอกสารออนไลน์</a>
+    <div class="container-fluid px-3 px-lg-4">
+      <a class="navbar-brand" href="dashboard.html" data-i18n="navbar.title">ระบบขอเอกสารออนไลน์</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto">
-    <!--      <li class="nav-item">
-            <a class="nav-link" href="../index.html" data-i18n="navbar.home">หน้าหลัก</a>
-          </li> -->
           <li class="nav-item">
             <a class="nav-link" href="dashboard.html" data-i18n="navbar.dashboard">แดชบอร์ด</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="requests.html" data-i18n="admin.requests.title">จัดการคำขอ</a>
+            <a class="nav-link" href="requests.html" data-i18n="admin.dashboard.requestManagement">จัดการคำขอเอกสาร</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link active" href="users.html" data-i18n="admin.users.title">จัดการผู้ใช้</a>
+            <a class="nav-link active" href="users.html" data-i18n="admin.dashboard.userManagement" aria-current="page">จัดการผู้ใช้</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="reports.html" data-i18n="admin.reports.title">รายงาน</a>
+            <a class="nav-link" href="reports.html" data-i18n="admin.dashboard.reports">รายงาน</a>
           </li>
         </ul>
         <div class="language-selector d-flex me-3">
