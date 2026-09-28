@@ -94,7 +94,7 @@ Mounted prefixes:
 
 ### i18n (th / en / zh)
 
-- Frontend: `public/js/language.js` loads `public/locales/{th,en,zh}.json`, translates elements with `data-i18n="section.key"`, stores the choice in `localStorage.language`, sets `window.i18n` / `window.currentLang`, and dispatches an `i18nReady` event. Page scripts that build translated DOM wait for that event or poll `window.i18nLoaded`. Add new keys to all three files. `th.json` is the most complete; `en` and `zh` are missing `login.noAccount` and `admin.statusInfo.*`.
+- Frontend: `public/js/language.js` loads `public/locales/{th,en,zh}.json`, translates elements with `data-i18n="section.key"`, stores the choice in `localStorage.language`, sets `window.i18n` / `window.currentLang`, and dispatches an `i18nReady` event. Page scripts that build translated DOM wait for that event or poll `window.i18nLoaded`. Add new keys to all three files with the same nesting. Known mismatch: `statusInfo` is at the top level in `en`/`zh` but nested under `admin.statusInfo` in `th`. `status.js` reads the top-level key, so Thai only works through the hard-coded fallback strings. `login.noAccount` exists only in `th`.
 - DB: `document_types` and `faculties` have `name_th`/`name_en`/`name_zh` columns, and endpoints choose one by building ``name_${req.query.lang}`` into the SQL string. That value isn't validated, which is an SQL injection risk. Whitelist `th|en|zh` when you touch these queries.
 - API messages, LINE messages and reports (`dt.name_th`) are in Thai only.
 
@@ -130,6 +130,28 @@ Recipients, in order of priority:
 3. `LINE_ADMIN_USER_ID`
 
 The first one that is set wins. `GET /api/test-line` sends a real test message to the group and has no auth. `utils/findGroupId.js` is a standalone webhook server for discovering the group ID. See also `manuals/LINE_SETUP.md`.
+
+## Developing new features
+
+There are no automated tests. Verify changes as follows:
+- **Smoke-test backend changes against a throwaway DB before restarting production.** Create a temporary database, load `database/schema.sql` + `database/seed.sql`, create an admin with `scripts/create-admin.js`, then run a second server instance: `DB_NAME=<tmpdb> PORT=3299 LINE_CHANNEL_ACCESS_TOKEN= node server.js`. Blanking the LINE token matters, because otherwise test requests send real messages to the staff LINE group (dotenv never overrides variables that are already set). Exercise the endpoints with `curl`, then drop the DB.
+- Frontend edits in `public/` go live the moment they're saved. For risky UI changes, work on a copy page first or test through the port-3299 instance, which serves `public/` too.
+
+Conventions to follow (match the existing code):
+- **Endpoint:** add it inside the route factory. Apply `authenticateJWT` (plus `isAdmin` for admin routes) per route. Use `pool.query` with `$n` parameters, and respond with `res.status(...).json({ message: '<Thai text>' })` on errors. Use `pool.connect()` + `BEGIN/COMMIT/ROLLBACK` for multi-statement writes (see `PUT /api/admin/request/:id/status`). Anything that must stay private must live under `/api/`, because nginx serves everything else from `public/`.
+- **Page:** copy an existing page's `<head>`/navbar. Load the Bootstrap CDN, `language.js`, `main.js`, then your script (admin pages add `admin-common.js`). Read the token from `localStorage` and send `Authorization: Bearer`. Put every visible string in `data-i18n` keys in all three locale files.
+- **Rendering:** the existing code builds tables with `innerHTML` template strings. When you insert user-controlled values (names, addresses, notes), escape them or use `textContent`. The existing pages don't, see "Known bugs".
+- **Libraries** come from CDNs: Bootstrap 5.3, Chart.js, jsPDF + autotable, SheetJS `xlsx`, `html2canvas` and `qrcode`. Thai PDF fonts are in `thai-fonts.js`. There is no npm frontend tooling, so add new libraries the same way.
+- **Schema change:** apply the SQL by hand in production, then regenerate `database/schema.sql` (see "Database schema") and commit both the code and the schema together.
+
+## Known bugs (found 2026-09-28, not yet fixed)
+
+- **Uploads with long Thai filenames fail (500, `ENAMETOOLONG`).** multer names files `Date.now() + '-' + originalname`, and `originalname` arrives as mis-decoded UTF-8, so it can exceed the 255-byte limit. This appears repeatedly in the pm2 error log. The fix is to generate the filename from timestamp + random + extension only.
+- **LINE notifications often fail with HTTP 429** (129 times in the last 2,000 error-log lines). The most likely cause is the LINE Messaging API monthly free-message quota; the log shows only the status code. Staff miss new-request alerts, and failures are only logged.
+- **Stored XSS:** student-supplied `full_name` and status-history `note` are inserted with `innerHTML` in admin pages (`admin-requests.js`, `admin-dashboard.js`, `users.js`, `request-detail.js`, `status.js`). The admin JWT lives in `localStorage`.
+- SQL injection via `?lang=`. `/api/test-line` and `/api/line-config` have no auth. The server trusts the client-sent `total_price`. See also "Request data model" and "Database schema".
+- `GET /api/admin/requests` ignores `page`/`limit`, so `admin-requests.js` fetches every request and paginates client-side. Expect this to slow down as data grows (~3,000 requests as of 2026-09).
+- `jwt expired` errors from `GET /api/auth/user` flood the error log. This is expected when a session is over 24h old; it's noise, not a bug.
 
 ## Environment
 
