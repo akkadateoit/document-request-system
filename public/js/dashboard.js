@@ -3,7 +3,7 @@ function waitForI18n(callback, maxAttempts = 10, currentAttempt = 0) {
   if (window.i18n && window.i18n[currentLang] && window.i18n[currentLang].dashboard && window.i18n[currentLang].errors) {
     callback();
   } else if (currentAttempt < maxAttempts) {
-    console.log(`Waiting for i18n... attempt ${currentAttempt + 1}/${maxAttempts}`);
+   //  console.log(`Waiting for i18n... attempt ${currentAttempt + 1}/${maxAttempts}`);
     setTimeout(() => {
       waitForI18n(callback, maxAttempts, currentAttempt + 1);
     }, 200);
@@ -159,7 +159,7 @@ async function loadUserProfile() {
     }
     
     const user = await response.json();
-    console.log("User data:", user); // Debug log
+   // console.log("User data:", user); // Debug log
     
     // แสดงข้อมูลผู้ใช้
     document.getElementById('user-student-id').textContent = user.student_id || '-';
@@ -169,7 +169,7 @@ async function loadUserProfile() {
     document.getElementById('user-phone').textContent = user.phone || '-';
     
     // แก้ไขการแสดงวันที่ลงทะเบียน
-    console.log("Register date:", user.created_at); // Debug log
+  //  console.log("Register date:", user.created_at); // Debug log
     if (user.created_at) {
       document.getElementById('user-join-date').textContent = formatDate(user.created_at, currentLang);
     } else {
@@ -187,7 +187,7 @@ async function loadUserProfile() {
 
 // ฟังก์ชันเริ่มต้นหลักของหน้า Dashboard
 function initializeDashboard() {
-  console.log('Initializing dashboard...');
+ // console.log('Initializing dashboard...');
   
   // ตรวจสอบว่ามีการเข้าสู่ระบบหรือไม่
   checkLogin();
@@ -201,11 +201,11 @@ function initializeDashboard() {
 
 // แก้ไข DOMContentLoaded event listener
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('Dashboard page loaded, waiting for i18n...');
+ // console.log('Dashboard page loaded, waiting for i18n...');
   
   // รอให้ i18n โหลดเสร็จก่อนแล้วค่อยเริ่มต้น dashboard
   waitForI18n(() => {
-    console.log('i18n ready, initializing dashboard');
+  //  console.log('i18n ready, initializing dashboard');
     initializeDashboard();
   });
 });

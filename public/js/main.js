@@ -166,7 +166,7 @@ function showAlert(message, type = 'success') {
   const alertContainer = document.getElementById('alert-container');
   
   if (!alertContainer) {
-    console.warn('Alert container not found, message:', message);
+  //  console.warn('Alert container not found, message:', message);
     return;
   }
   
@@ -196,21 +196,21 @@ function showAlert(message, type = 'success') {
 
 // เพิ่มฟังก์ชันสำหรับ debug i18n
 function debugI18n() {
-  console.log('=== i18n Debug Info ===');
-  console.log('window.i18n exists:', !!window.i18n);
-  console.log('currentLang:', window.currentLang);
+ // console.log('=== i18n Debug Info ===');
+ // console.log('window.i18n exists:', !!window.i18n);
+ // console.log('currentLang:', window.currentLang);
   
   if (window.i18n && window.currentLang) {
-    console.log('Current language data exists:', !!window.i18n[window.currentLang]);
-    console.log('Dashboard section exists:', !!(window.i18n[window.currentLang] && window.i18n[window.currentLang].dashboard));
-    console.log('Errors section exists:', !!(window.i18n[window.currentLang] && window.i18n[window.currentLang].errors));
+ //   console.log('Current language data exists:', !!window.i18n[window.currentLang]);
+  //  console.log('Dashboard section exists:', !!(window.i18n[window.currentLang] && window.i18n[window.currentLang].dashboard));
+  //  console.log('Errors section exists:', !!(window.i18n[window.currentLang] && window.i18n[window.currentLang].errors));
   }
-  console.log('======================');
+//  console.log('======================');
 }
 
 // เพิ่มการฟังเหตุการณ์เมื่อโหลดหน้าเว็บ - แก้ไขใหม่
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('main.js: DOM loaded');
+//  console.log('main.js: DOM loaded');
   
   // Debug i18n status
   debugI18n();

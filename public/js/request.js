@@ -106,7 +106,7 @@ function saveQuantityFromModal() {
 // แก้ไขฟังก์ชัน loadDocumentTypes() ในไฟล์ request.js
 async function loadDocumentTypes() {
   try {
-    console.log('Loading document types, current language:', currentLang);
+  //  console.log('Loading document types, current language:', currentLang);
     const response = await fetch(`/api/documents/types?lang=${currentLang}`);
     
     if (!response.ok) {
@@ -114,7 +114,7 @@ async function loadDocumentTypes() {
     }
     
     documentTypes = await response.json();
-    console.log('Loaded document types:', documentTypes);
+   // console.log('Loaded document types:', documentTypes);
     
     // เรียงลำดับตาม ID
     documentTypes.sort((a, b) => {
@@ -123,13 +123,13 @@ async function loadDocumentTypes() {
       return idA - idB;
     });
     
-    console.log('Document types sorted by ID:', documentTypes);
+  //  console.log('Document types sorted by ID:', documentTypes);
     
     // เพิ่มรายการประเภทเอกสารในหน้าต่าง Modal
     const modalDocumentTypeSelect = document.getElementById('modal-document-type');
     
     if (modalDocumentTypeSelect) {
-      console.log('Found modal-document-type, populating options');
+    //  console.log('Found modal-document-type, populating options');
       modalDocumentTypeSelect.innerHTML = '';
       
       // เพิ่มตัวเลือกเริ่มต้น - แก้ไขส่วนนี้
@@ -146,16 +146,16 @@ async function loadDocumentTypes() {
         if (window.i18n[currentLang].request.selectDocumentType) {
           selectText = window.i18n[currentLang].request.selectDocumentType;
         } else {
-          console.warn(`Translation for 'request.selectDocumentType' not found in language ${currentLang}`);
+       //   console.warn(`Translation for 'request.selectDocumentType' not found in language ${currentLang}`);
         }
       } else {
-        console.warn('i18n object not ready yet, using default text');
+      //  console.warn('i18n object not ready yet, using default text');
         
         // ถ้า i18n ยังไม่พร้อม ให้รอแล้วลองใหม่
         setTimeout(() => {
           if (window.i18n && window.i18n[currentLang] && window.i18n[currentLang].request && window.i18n[currentLang].request.selectDocumentType) {
             defaultOption.textContent = window.i18n[currentLang].request.selectDocumentType;
-            console.log('Updated select text after i18n loaded');
+          //  console.log('Updated select text after i18n loaded');
           }
         }, 500);
       }
@@ -173,15 +173,15 @@ async function loadDocumentTypes() {
           modalDocumentTypeSelect.appendChild(option);
         });
         
-        console.log('Added document types to select (sorted by ID):', modalDocumentTypeSelect.options.length - 1);
+      //  console.log('Added document types to select (sorted by ID):', modalDocumentTypeSelect.options.length - 1);
       } else {
-        console.warn('No document types found in response');
+     //   console.warn('No document types found in response');
       }
     } else {
-      console.error('Modal document type select element not found');
+    //  console.error('Modal document type select element not found');
     }
   } catch (error) {
-    console.error('Error loading document types:', error);
+  //  console.error('Error loading document types:', error);
     showAlert('ไม่สามารถโหลดข้อมูลประเภทเอกสารได้', 'danger');
   }
 }
@@ -195,7 +195,7 @@ function waitForI18n(callback, maxAttempts = 10, currentAttempt = 0) {
       waitForI18n(callback, maxAttempts, currentAttempt + 1);
     }, 200);
   } else {
-    console.warn('i18n failed to load after maximum attempts');
+  //  console.warn('i18n failed to load after maximum attempts');
     callback(); // เรียก callback ต่อไปแม้ว่า i18n จะไม่พร้อม
   }
 }
@@ -380,7 +380,7 @@ function calculatePrice() {
     }
 
     // เพิ่มบรรทัดนี้ในส่วนต้นของฟังก์ชัน calculatePrice()
-console.log('calculatePrice called, selectedDocuments:', selectedDocuments);
+// console.log('calculatePrice called, selectedDocuments:', selectedDocuments);
 
     
     // ตรวจสอบวิธีการรับเอกสาร
