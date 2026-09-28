@@ -9,7 +9,8 @@ const authenticateJWT = (req, res, next) => {
     
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
       if (err) {
-        return res.status(403).json({ message: 'Token ไม่ถูกต้อง' });
+        // 401 = ต้องเข้าสู่ระบบใหม่ (token หมดอายุ/ไม่ถูกต้อง) — main.js ใช้สถานะนี้พาไปหน้า login
+        return res.status(401).json({ message: 'Token ไม่ถูกต้อง' });
       }
       
       req.user = user;

@@ -50,6 +50,7 @@
     "postalService": "Postal Service Fee"
   },
   "login": {
+    "noAccount": "Don't have an account?",
     "title": "Login - Document Request System",
     "header": "Login",
     "studentID": "Student ID",
@@ -203,6 +204,7 @@
     "unitPrice": "Unit Price",
     "subtotal": "Subtotal",
     "viewPaymentSlip": "View Payment Slip",
+    "slipDeleted": "The payment slip file has been deleted (files are kept for 30 days).",
     "noPaymentSlip": "No payment slip uploaded",
     "noHistory": "No status change history"
   },
@@ -350,6 +352,7 @@
     "registrationFailed": "Registration failed. Please check your information and try again.",
     "loginFailed": "Login failed. Incorrect student ID or password.",
     "serverError": "Error connecting to server. Please try again later.",
+    "sessionExpired": "Your session has expired. Please log in again.",
     "selectDocumentType": "Please select a document type.",
     "enterAddress": "Please enter your shipping address.",
     "selectPickupLocation": "Please select a pickup location.",

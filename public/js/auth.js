@@ -313,5 +313,20 @@ document.addEventListener('DOMContentLoaded', () => {
   
   if (loginForm) {
     loginForm.addEventListener('submit', login);
+
+    // ถูกพามาจากหน้าอื่นเพราะ login หมดอายุ (ดู main.js)
+    if (new URLSearchParams(window.location.search).get('expired') === '1') {
+      let expiredShown = false;
+      const showExpired = () => {
+        if (expiredShown) return;
+        expiredShown = true;
+        showAlert(window.i18n?.[currentLang]?.errors?.sessionExpired || 'หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่', 'warning');
+      };
+      if (window.i18nLoaded) showExpired();
+      else {
+        document.addEventListener('i18nReady', showExpired, { once: true });
+        setTimeout(showExpired, 3000); // เผื่อโหลดไฟล์ภาษาไม่สำเร็จ
+      }
+    }
   }
 });

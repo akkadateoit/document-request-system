@@ -260,7 +260,7 @@ function displayRequestDetails(request) {
       if (request.payment_slip_url) {
         const fileExtension = request.payment_slip_url.split('.').pop().toLowerCase();
         
-        if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) {
           detailPaymentSlip.innerHTML = `
             <img src="${escapeHtml(request.payment_slip_url)}" alt="Payment Slip" class="img-fluid" style="max-height: 300px;">
           `;
@@ -269,6 +269,7 @@ function displayRequestDetails(request) {
             <p><i class="bi bi-file-earmark-pdf"></i> <a href="${escapeHtml(request.payment_slip_url)}" target="_blank">ดูหลักฐานการชำระเงิน</a></p>
           `;
         }
+        if (typeof checkSlipAvailable === 'function') checkSlipAvailable(detailPaymentSlip, request.payment_slip_url);
         
         if (uploadPaymentContainer) {
           uploadPaymentContainer.style.display = 'none';

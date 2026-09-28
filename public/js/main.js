@@ -9,6 +9,49 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+// login หมดอายุ/token ไม่ถูกต้อง: API ตอบ 401 -> ล้างข้อมูล login แล้วพาไปหน้า login
+// ครอบ fetch ไว้ที่เดียว ทุกหน้าที่โหลด main.js ได้ผลโดยไม่ต้องแก้ทีละหน้า
+(function () {
+  if (window.__authFetchWrapped || typeof window.fetch !== 'function') return;
+  window.__authFetchWrapped = true;
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async function (input, init) {
+    const response = await originalFetch(input, init);
+    try {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      const headers = init && init.headers;
+      const sentToken = !!(headers && (headers instanceof Headers
+        ? headers.get('Authorization')
+        : (headers.Authorization || headers.authorization)));
+      if (response.status === 401 && sentToken && url.indexOf('/api/') !== -1 && url.indexOf('/api/auth/login') === -1) {
+        ['token', 'userId', 'userName', 'userRole', 'studentId'].forEach(key => {
+          try { localStorage.removeItem(key); } catch (e) { /* ignore */ }
+        });
+        window.location.href = '/login.html?expired=1';
+      }
+    } catch (e) {
+      console.error('Auth check failed:', e);
+    }
+    return response;
+  };
+})();
+
+// สลิปถูกลบแล้ว: server ลบไฟล์ใน public/uploads ที่เก่ากว่า 30 วัน (cron) แต่ database ยังเก็บลิงก์ไว้
+// nginx ตอบไฟล์ที่ไม่มีด้วย index.html (200) จึงต้องดู content-type แทน status
+async function checkSlipAvailable(container, url) {
+  if (!container || !url) return;
+  try {
+    const response = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    const type = (response.headers.get('content-type') || '').toLowerCase();
+    if (!response.ok || type.includes('text/html')) {
+      container.innerHTML = '<p class="text-muted mb-0"><i class="bi bi-file-earmark-x"></i> ' +
+        escapeHtml(window.i18n?.[window.currentLang]?.requestDetail?.slipDeleted || 'ไฟล์หลักฐานการชำระเงินถูกลบแล้ว (ระบบเก็บไฟล์ไว้ 30 วัน)') + '</p>';
+    }
+  } catch (e) {
+    // เช็กไม่ได้ก็แสดงตามเดิม
+  }
+}
+
 // ข้อความวิธีรับเอกสาร เช่น "รับด้วยตนเอง (รังสิต)" — คืนค่าเป็น text ธรรมดา ต้อง escapeHtml ก่อนใส่ใน innerHTML
 function formatDeliveryMethod(deliveryMethod, pickupLocation, lang) {
   lang = lang || window.currentLang || 'th';

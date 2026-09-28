@@ -10,7 +10,7 @@ module.exports = (pool, upload) => {
   // ดึงรายการประเภทเอกสาร
   router.get('/types', async (req, res) => {
     try {
-      const lang = req.query.lang || 'th';
+      const lang = ['th', 'en', 'zh'].includes(req.query.lang) ? req.query.lang : 'th'; // whitelist: ใช้ต่อเป็นชื่อคอลัมน์ใน SQL
       const column = `name_${lang}`;
       
       const documentTypes = await pool.query(
@@ -27,7 +27,7 @@ module.exports = (pool, upload) => {
   // ดึงรายการคณะ
   router.get('/faculties', async (req, res) => {
     try {
-      const lang = req.query.lang || 'th';
+      const lang = ['th', 'en', 'zh'].includes(req.query.lang) ? req.query.lang : 'th'; // whitelist: ใช้ต่อเป็นชื่อคอลัมน์ใน SQL
       const column = `name_${lang}`;
       
       const faculties = await pool.query(
@@ -280,7 +280,7 @@ module.exports = (pool, upload) => {
   // ดึงรายการคำขอเอกสารของผู้ใช้
   router.get('/my-requests', authenticateJWT, async (req, res) => {
     try {
-      const lang = req.query.lang || 'th';
+      const lang = ['th', 'en', 'zh'].includes(req.query.lang) ? req.query.lang : 'th'; // whitelist: ใช้ต่อเป็นชื่อคอลัมน์ใน SQL
       const column = `name_${lang}`;
       const status = req.query.status || '';
       const search = req.query.search || '';
@@ -353,7 +353,7 @@ module.exports = (pool, upload) => {
   router.get('/request/:id', authenticateJWT, async (req, res) => {
     try {
       const { id } = req.params;
-      const lang = req.query.lang || 'th';
+      const lang = ['th', 'en', 'zh'].includes(req.query.lang) ? req.query.lang : 'th'; // whitelist: ใช้ต่อเป็นชื่อคอลัมน์ใน SQL
       const column = `name_${lang}`;
       
       // ตรวจสอบว่าคำขอนี้เป็นของผู้ใช้นี้หรือเป็นผู้ดูแลระบบ

@@ -4,6 +4,44 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
+// จำกัดการ login ผิดซ้ำๆ (กันการเดารหัสผ่าน) — เก็บในหน่วยความจำ รีเซ็ตเมื่อ restart
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_FAILS_PER_ACCOUNT_IP = 5;   // ต่อ (IP + รหัสนักศึกษา)
+const MAX_FAILS_PER_IP = 30;          // ต่อ IP รวมทุกบัญชี
+const loginFailures = new Map();      // key -> { count, first }
+
+// IP จริงของผู้ใช้: ผ่าน Cloudflare -> nginx -> node
+function clientIp(req) {
+  return req.headers['cf-connecting-ip'] || req.headers['x-real-ip'] || req.ip || 'unknown';
+}
+
+function failureCount(key) {
+  const entry = loginFailures.get(key);
+  if (!entry) return 0;
+  if (Date.now() - entry.first > LOGIN_WINDOW_MS) {
+    loginFailures.delete(key);
+    return 0;
+  }
+  return entry.count;
+}
+
+function recordFailure(key) {
+  const entry = loginFailures.get(key);
+  if (!entry || Date.now() - entry.first > LOGIN_WINDOW_MS) {
+    loginFailures.set(key, { count: 1, first: Date.now() });
+  } else {
+    entry.count++;
+  }
+}
+
+// ล้างรายการที่หมดอายุทุก 5 นาที
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of loginFailures) {
+    if (now - entry.first > LOGIN_WINDOW_MS) loginFailures.delete(key);
+  }
+}, 5 * 60 * 1000).unref();
+
 module.exports = (pool) => {
   // ลงทะเบียน - อัปเดตให้รองรับฟิลด์ใหม่
   router.post('/register', async (req, res) => {
@@ -69,6 +107,13 @@ module.exports = (pool) => {
     try {
       const { student_id, password } = req.body;
       
+      const ip = clientIp(req);
+      const accountKey = `acct:${ip}:${String(student_id || '').toLowerCase()}`;
+      const ipKey = `ip:${ip}`;
+      if (failureCount(accountKey) >= MAX_FAILS_PER_ACCOUNT_IP || failureCount(ipKey) >= MAX_FAILS_PER_IP) {
+        return res.status(429).json({ message: 'เข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารอ 15 นาทีแล้วลองใหม่' });
+      }
+      
       // ค้นหาผู้ใช้
       const user = await pool.query(
         'SELECT * FROM users WHERE student_id = $1',
@@ -76,15 +121,21 @@ module.exports = (pool) => {
       );
       
       if (user.rows.length === 0) {
+        recordFailure(accountKey);
+        recordFailure(ipKey);
         return res.status(400).json({ message: 'รหัสนักศึกษาหรือรหัสผ่านไม่ถูกต้อง' });
       }
       
       // ตรวจสอบรหัสผ่าน
-      const validPassword = await bcrypt.compare(password, user.rows[0].password);
+      const validPassword = await bcrypt.compare(password || '', user.rows[0].password);
       
       if (!validPassword) {
+        recordFailure(accountKey);
+        recordFailure(ipKey);
         return res.status(400).json({ message: 'รหัสนักศึกษาหรือรหัสผ่านไม่ถูกต้อง' });
       }
+      
+      loginFailures.delete(accountKey);
       
       // สร้าง token
       const token = jwt.sign(

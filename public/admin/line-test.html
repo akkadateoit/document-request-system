@@ -212,8 +212,8 @@ LINE_ADMIN_USER_ID=xxx</code></pre>
       testBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> กำลังส่ง...';
       
       try {
-        const response = await fetch('/api/admin/test-line-notification', {
-          method: 'POST',
+        const response = await fetch('/api/test-line', {
+          method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

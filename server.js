@@ -4,6 +4,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const crypto = require('crypto');
+const authenticateJWT = require('./middleware/auth');
+const isAdmin = require('./middleware/admin');
 const multer = require('multer');
 const { Pool } = require('pg');
 
@@ -38,7 +40,27 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`);
   }
 });
-const upload = multer({ storage: storage });
+// รับเฉพาะรูปภาพและ PDF: ไฟล์ใน public/uploads ถูก nginx เสิร์ฟจากโดเมนเดียวกับระบบ
+// ถ้ายอมให้อัปโหลด .html/.svg จะกลายเป็นช่องโหว่ XSS (ขโมย token ของ admin ได้)
+const ALLOWED_UPLOAD_TYPES = {
+  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif',
+  '.webp': 'image/webp', '.heic': 'image/heic', '.heif': 'image/heif', '.pdf': 'application/pdf'
+};
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  fileFilter: function (req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const mime = (file.mimetype || '').toLowerCase();
+    const extOk = Object.prototype.hasOwnProperty.call(ALLOWED_UPLOAD_TYPES, ext);
+    // บางเครื่องส่ง mimetype เป็น application/octet-stream มากับรูป HEIC
+    const mimeOk = mime === ALLOWED_UPLOAD_TYPES[ext] || (ext.startsWith('.hei') && (mime.startsWith('image/') || mime === 'application/octet-stream'));
+    if (extOk && mimeOk) return cb(null, true);
+    const err = new Error('INVALID_FILE_TYPE');
+    err.code = 'INVALID_FILE_TYPE';
+    cb(err);
+  }
+});
 
 // นำเข้าเส้นทาง (routes)
 const authRoutes = require('./routes/auth')(pool);
@@ -89,7 +111,7 @@ if (reportRoutes) {
 
 // เพิ่ม endpoint สำหรับทดสอบ LINE notification (ถ้ามี)
 if (testLineNotification && getLineConfiguration) {
-  app.get('/api/test-line', async (req, res) => {
+  app.get('/api/test-line', authenticateJWT, isAdmin, async (req, res) => {
     try {
       console.log('🧪 Testing LINE notification...');
       
@@ -122,7 +144,7 @@ if (testLineNotification && getLineConfiguration) {
   });
 
   // เพิ่ม endpoint สำหรับดูการตั้งค่า LINE
-  app.get('/api/line-config', (req, res) => {
+  app.get('/api/line-config', authenticateJWT, isAdmin, (req, res) => {
     try {
       const config = getLineConfiguration();
       res.json(config);
@@ -157,6 +179,14 @@ app.get('/', (req, res) => {
 
 // Error handling middleware
 app.use((error, req, res, next) => {
+  // ไฟล์อัปโหลดไม่ผ่านเงื่อนไข (ประเภท/ขนาด) — ตอบ 400 พร้อมข้อความให้ผู้ใช้เข้าใจ
+  if (error && error.code === 'INVALID_FILE_TYPE') {
+    return res.status(400).json({ message: 'รองรับเฉพาะไฟล์รูปภาพ (JPG, PNG, GIF, WEBP, HEIC) หรือ PDF เท่านั้น' });
+  }
+  if (error instanceof multer.MulterError) {
+    const message = error.code === 'LIMIT_FILE_SIZE' ? 'ไฟล์มีขนาดใหญ่เกิน 10 MB' : 'ไม่สามารถอัปโหลดไฟล์ได้';
+    return res.status(400).json({ message });
+  }
   console.error('Server Error:', error);
   res.status(500).json({ message: 'Internal Server Error' });
 });

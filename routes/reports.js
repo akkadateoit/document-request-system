@@ -5,36 +5,52 @@ const isAdmin = require('../middleware/admin');
 
 module.exports = (pool) => {
   // รายงานสรุปรายการขอเอกสาร
+  // ช่วงวันที่: รวมทั้งวันสุดท้าย (created_at < end_date + 1 วัน) — ถ้าใช้ BETWEEN จะตัดคำขอหลังเที่ยงคืนของวันสุดท้ายทิ้ง
+  // รายได้: นับเฉพาะคำขอสถานะ completed
   router.get('/summary', authenticateJWT, isAdmin, async (req, res) => {
     try {
       const { start_date, end_date } = req.query;
+      const range = [start_date || '1900-01-01', end_date || '2999-12-31'];
+      const inRangeOf = (alias) => `${alias}created_at >= $1::date AND ${alias}created_at < ($2::date + 1)`;
+      const inRange = inRangeOf('');
       
       // คำนวณจำนวนคำขอเอกสารทั้งหมด
       const totalRequests = await pool.query(
-        'SELECT COUNT(*) FROM document_requests WHERE created_at BETWEEN $1 AND $2',
-        [start_date || '1900-01-01', end_date || '2999-12-31']
+        `SELECT COUNT(*) FROM document_requests WHERE ${inRange}`,
+        range
       );
       
       // จำนวนคำขอเอกสารแยกตามสถานะ
       const requestsByStatus = await pool.query(
-        'SELECT status, COUNT(*) FROM document_requests WHERE created_at BETWEEN $1 AND $2 GROUP BY status',
-        [start_date || '1900-01-01', end_date || '2999-12-31']
+        `SELECT status, COUNT(*) FROM document_requests WHERE ${inRange} GROUP BY status`,
+        range
       );
       
-      // จำนวนคำขอเอกสารแยกตามประเภทเอกสาร
+      // จำนวนคำขอแยกตามประเภทเอกสาร — นับทุกเอกสารในคำขอ (document_request_items)
+      // คำขอแบบเก่าที่ไม่มี items ใช้ document_type_id ของคำขอหลัก
       const requestsByType = await pool.query(
-        `SELECT dt.name_th, COUNT(*) 
-        FROM document_requests dr
-        JOIN document_types dt ON dr.document_type_id = dt.id
-        WHERE dr.created_at BETWEEN $1 AND $2
-        GROUP BY dt.name_th`,
-        [start_date || '1900-01-01', end_date || '2999-12-31']
+        `SELECT dt.name_th, COUNT(DISTINCT x.request_id) AS count
+        FROM (
+          SELECT dri.request_id, dri.document_type_id
+          FROM document_request_items dri
+          JOIN document_requests dr ON dr.id = dri.request_id
+          WHERE ${inRangeOf('dr.')}
+          UNION ALL
+          SELECT dr.id, dr.document_type_id
+          FROM document_requests dr
+          WHERE ${inRangeOf('dr.')}
+            AND NOT EXISTS (SELECT 1 FROM document_request_items i WHERE i.request_id = dr.id)
+        ) x
+        JOIN document_types dt ON dt.id = x.document_type_id
+        GROUP BY dt.name_th
+        ORDER BY count DESC`,
+        range
       );
       
-      // รายได้ทั้งหมด
+      // รายได้ (เฉพาะคำขอที่เสร็จสิ้น)
       const totalRevenue = await pool.query(
-        'SELECT SUM(total_price) FROM document_requests WHERE created_at BETWEEN $1 AND $2',
-        [start_date || '1900-01-01', end_date || '2999-12-31']
+        `SELECT SUM(total_price) FROM document_requests WHERE ${inRange} AND status = 'completed'`,
+        range
       );
       
       res.status(200).json({
@@ -59,7 +75,7 @@ module.exports = (pool) => {
         `SELECT 
           TO_CHAR(created_at, 'MM') as month,
           COUNT(*) as request_count,
-          SUM(total_price) as revenue
+          COALESCE(SUM(total_price) FILTER (WHERE status = 'completed'), 0) as revenue -- รายได้เฉพาะคำขอที่เสร็จสิ้น
         FROM document_requests
         WHERE EXTRACT(YEAR FROM created_at) = $1
         GROUP BY month

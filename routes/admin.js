@@ -8,7 +8,7 @@ module.exports = (pool) => {
  // ดึงรายการคำขอเอกสารทั้งหมด
 router.get('/requests', authenticateJWT, isAdmin, async (req, res) => {
   try {
-    const lang = req.query.lang || 'th';
+    const lang = ['th', 'en', 'zh'].includes(req.query.lang) ? req.query.lang : 'th'; // whitelist: ใช้ต่อเป็นชื่อคอลัมน์ใน SQL
     const column = `name_${lang}`;
     const status = req.query.status || '';
     const search = req.query.search || ''; // เพิ่มการรับ search parameter
@@ -160,7 +160,7 @@ router.get('/line-config', authenticateJWT, isAdmin, async (req, res) => {
 router.get('/request/:id', authenticateJWT, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const lang = req.query.lang || 'th';
+    const lang = ['th', 'en', 'zh'].includes(req.query.lang) ? req.query.lang : 'th'; // whitelist: ใช้ต่อเป็นชื่อคอลัมน์ใน SQL
     const column = `name_${lang}`;
     
     // เพิ่มฟิลด์ birth_date และ id_number
@@ -241,7 +241,7 @@ router.get('/request/:id', authenticateJWT, isAdmin, async (req, res) => {
   router.get('/user/:id/requests', authenticateJWT, isAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      const lang = req.query.lang || 'th';
+      const lang = ['th', 'en', 'zh'].includes(req.query.lang) ? req.query.lang : 'th'; // whitelist: ใช้ต่อเป็นชื่อคอลัมน์ใน SQL
       const column = `name_${lang}`;
       
       const requests = await pool.query(
@@ -725,7 +725,8 @@ router.get('/request/:id', authenticateJWT, isAdmin, async (req, res) => {
       const completedRequests = await pool.query('SELECT COUNT(*) FROM document_requests WHERE status = $1', ['completed']);
       
       // รายได้ทั้งหมด
-      const totalRevenue = await pool.query('SELECT SUM(total_price) FROM document_requests');
+      // รายได้นับเฉพาะคำขอที่เสร็จสิ้น
+      const totalRevenue = await pool.query("SELECT SUM(total_price) FROM document_requests WHERE status = 'completed'");
       
       // คำขอล่าสุด 5 รายการ
       const recentRequests = await pool.query(

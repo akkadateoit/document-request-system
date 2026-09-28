@@ -50,6 +50,7 @@
     "postalService": "邮寄服务费"
   },
   "login": {
+    "noAccount": "还没有账户？",
     "title": "登录 - 在线文件申请系统",
     "header": "登录",
     "studentID": "学号",
@@ -203,6 +204,7 @@
     "unitPrice": "单价",
     "subtotal": "小计",
     "viewPaymentSlip": "查看支付凭证",
+    "slipDeleted": "支付凭证文件已删除（系统保留文件30天）。",
     "noPaymentSlip": "尚未上传支付凭证",
     "noHistory": "无状态变更历史"
   },
@@ -350,6 +352,7 @@
     "registrationFailed": "注册失败。请检查您的信息并重试。",
     "loginFailed": "登录失败。学号或密码不正确。",
     "serverError": "连接服务器时出错。请稍后再试。",
+    "sessionExpired": "登录已过期，请重新登录。",
     "selectDocumentType": "请选择文件类型。",
     "enterAddress": "请输入您的邮寄地址。",
     "selectPickupLocation": "请选择取件地点。",

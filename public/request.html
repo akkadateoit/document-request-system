@@ -15,8 +15,8 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/responsive.css">
   
-  <!-- ใช้ QR Code API แทน library -->
-  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script> -->
+  <!-- สร้าง QR ชำระเงินในหน้าเว็บเอง (ไฟล์อยู่บน server นี้) — ถ้าใช้ไม่ได้จะใช้ QR Server API แทน -->
+  <script src="js/vendor/qrcode-generator.js?v=20260928d"></script>
   
   <!-- เพิ่ม CSS สำหรับปรับความกว้างตาราง -->
   <style>
@@ -443,54 +443,11 @@
   <script>
     // ติดตามการเปลี่ยนแปลงของช่องเร่งด่วน
     document.addEventListener('DOMContentLoaded', function() {
+      // ช่องเร่งด่วนเปลี่ยน: อัปเดต QR ตามยอดใหม่ (การคำนวณราคาอยู่ใน js/request.js ที่เดียว)
       const urgentCheckbox = document.getElementById('urgent');
       if (urgentCheckbox) {
         urgentCheckbox.addEventListener('change', function() {
-          setTimeout(function() {
-            // ตรวจสอบการคำนวณค่าบริการเร่งด่วน
-            if (urgentCheckbox.checked && document.querySelector('input[name="delivery_method"]:checked').value === 'pickup') {
-              // นับจำนวนเอกสารทั้งหมด
-              if (typeof selectedDocuments !== 'undefined' && selectedDocuments.length > 0) {
-                const totalDocuments = selectedDocuments.reduce((count, doc) => count + doc.quantity, 0);
-                const correctUrgentFee = 50 * totalDocuments;
-                
-                // ตรวจสอบและแก้ไขการแสดงผลค่าบริการเร่งด่วน
-                const urgentFeeElement = document.getElementById('urgent-fee');
-                if (urgentFeeElement) {
-                  // ตรวจสอบว่าค่าที่แสดงถูกต้องหรือไม่
-                  const currentDisplay = urgentFeeElement.textContent;
-                  const correctDisplay = formatCurrency ? formatCurrency(correctUrgentFee, currentLang || 'th') : `${correctUrgentFee}.00 บาท`;
-                  
-                  if (currentDisplay !== correctDisplay) {
-                    console.log('Fixing urgent fee display:', {current: currentDisplay, correct: correctDisplay});
-                    urgentFeeElement.textContent = correctDisplay;
-                    
-                    // แก้ไขราคารวมด้วย
-                    const totalPriceElement = document.getElementById('total-price');
-                    if (totalPriceElement) {
-                      const documentSubtotal = selectedDocuments.reduce((total, doc) => total + doc.subtotal, 0);
-                      const totalPrice = documentSubtotal + correctUrgentFee;
-                      totalPriceElement.textContent = formatCurrency ? formatCurrency(totalPrice, currentLang || 'th') : `${totalPrice}.00 บาท`;
-                    }
-                    
-                    // แก้ไขสรุปรายการ
-                    const summaryContainer = document.getElementById('summary-container');
-                    if (summaryContainer) {
-                      const urgentServiceElement = summaryContainer.querySelector('div:contains("บริการเร่งด่วน")');
-                      if (urgentServiceElement) {
-                        const urgentServiceTextElement = urgentServiceElement.querySelector('div');
-                        if (urgentServiceTextElement) {
-                          urgentServiceTextElement.textContent = `${correctDisplay} (${totalDocuments} ฉบับ x 50 บาท)`;
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-            // อัปเดต QR Code เมื่อมีการเปลี่ยนแปลง
-            updateQRCode();
-          }, 100);
+          setTimeout(updateQRCode, 100);
         });
       }
       
@@ -651,6 +608,43 @@
 
     // ฟังก์ชันสร้าง QR Code ด้วย API
     function generateQRCodeImage(data, canvas, callback) {
+      // สร้าง QR ในหน้าเว็บเอง: ข้อมูล (รหัสนักศึกษา/ยอดเงิน) ไม่ถูกส่งออกไปเว็บภายนอก
+      if (typeof qrcode === 'function') {
+        try {
+          const qr = qrcode(0, 'M');
+          qr.addData(data);
+          qr.make();
+          
+          const moduleCount = qr.getModuleCount();
+          const size = 200;
+          const quietZone = 4; // ขอบขาวตามมาตรฐาน QR
+          const cell = Math.floor(size / (moduleCount + quietZone * 2)); // ขนาดจุดเป็นจำนวนเต็ม ภาพจะคม
+          const offset = Math.floor((size - cell * moduleCount) / 2);
+          
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, size, size);
+          ctx.fillStyle = '#000000';
+          for (let row = 0; row < moduleCount; row++) {
+            for (let col = 0; col < moduleCount; col++) {
+              if (qr.isDark(row, col)) {
+                ctx.fillRect(offset + col * cell, offset + row * cell, cell, cell);
+              }
+            }
+          }
+          callback(true);
+          return;
+        } catch (error) {
+          console.error('Local QR generation failed, using QR Server API instead:', error);
+        }
+      }
+      generateQRCodeImageViaApi(data, canvas, callback);
+    }
+    
+    // สำรอง: สร้าง QR ผ่าน QR Server API (วิธีเดิม) เมื่อสร้างในหน้าเว็บไม่ได้
+    function generateQRCodeImageViaApi(data, canvas, callback) {
       try {
         // ใช้ QR Server API (ฟรี)
         const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}`;
@@ -779,9 +773,9 @@
   </footer>
   
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="js/language.js?v=20260928c"></script>
-  <script src="js/main.js?v=20260928c"></script>
-  <script src="js/request.js?v=20260928c"></script>
+  <script src="js/language.js?v=20260928d"></script>
+  <script src="js/main.js?v=20260928d"></script>
+  <script src="js/request.js?v=20260928d"></script>
   
   <script>
     // เพิ่ม event listeners เมื่อ DOM โหลดเสร็จ
