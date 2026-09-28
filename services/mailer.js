@@ -20,10 +20,15 @@ function getTransporter() {
   if (isLogMode()) {
     transporter = nodemailer.createTransport({ jsonTransport: true });
   } else {
+    const port = parseInt(process.env.SMTP_PORT || '465', 10);
+    // 465 = TLS ตั้งแต่ต้น (secure=true), 587 = STARTTLS (secure=false แล้วอัปเกรดเป็น TLS)
+    // ถ้าไม่ได้ตั้ง SMTP_SECURE ให้เลือกตาม port
+    const secure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465;
     transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '465', 10),
-      secure: (process.env.SMTP_SECURE || 'true') === 'true',
+      port,
+      secure,
+      requireTLS: !secure, // บังคับ STARTTLS: ไม่ยอมส่งรหัสผ่านแบบไม่เข้ารหัส
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
   }
@@ -42,4 +47,10 @@ async function sendMail({ to, subject, text, html }) {
   return info;
 }
 
-module.exports = { sendMail, isMailConfigured };
+// ตรวจการเชื่อมต่อ/ล็อกอิน SMTP โดยไม่ส่งอีเมล (ใช้ตอนตั้งค่า: node -e "require('./services/mailer').verify()...")
+async function verify() {
+  if (!isMailConfigured()) throw new Error('Mail is not configured');
+  return getTransporter().verify();
+}
+
+module.exports = { sendMail, isMailConfigured, verify };

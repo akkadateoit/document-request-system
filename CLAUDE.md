@@ -141,7 +141,7 @@ Dead files that no page loads: `js/reports.js`, `*.bak*`, `*.save`, `*.newrangsi
   - Requests are rate-limited to 3/hour per email and 10/hour per IP.
 - **Link URL:** the link is built from `APP_URL` in `.env`, never from the Host header, which would enable token theft via host-header injection.
 - **Referrer:** `reset-password.html` sets `<meta name="referrer" content="no-referrer">` and strips the token from the address bar (it keeps it in `sessionStorage`), so the token doesn't leak to CDNs through Referer.
-- **Mail sending:** `services/mailer.js` uses nodemailer over SMTP (`SMTP_HOST/PORT/SECURE/USER/PASS`, `MAIL_FROM`). The university uses Google Workspace, so use `smtp.gmail.com:465` with an App Password. The server's own postfix is not in the domain's SPF, so mail sent through it would land in spam.
+- **Mail sending:** `services/mailer.js` uses nodemailer over SMTP (`SMTP_HOST/PORT/SECURE/USER/PASS`, `MAIL_FROM`). The university uses Google Workspace, so use `smtp.gmail.com` with an App Password. Production uses port 587; if `SMTP_SECURE` is unset, it defaults to true for 465 and false otherwise, and STARTTLS is required. `require('./services/mailer').verify()` checks the SMTP login without sending. The server's own postfix is not in the domain's SPF, so mail sent through it would land in spam.
   - Until SMTP and `APP_URL` are set, `/available` returns false, `login.html` hides the "ลืมรหัสผ่าน?" link, and `forgot-password` returns 503.
   - Set `MAIL_TRANSPORT=log` on a test instance to print emails, including the link, to the log instead of sending them.
 
