@@ -1,5 +1,6 @@
 // escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
 if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+if (typeof formatDeliveryMethod !== 'function') { window.formatDeliveryMethod = function (m, loc) { if (m !== 'pickup') return 'รับทางไปรษณีย์'; var p = { saphanmai: 'สะพานใหม่', rangsit: 'รังสิต' }[loc]; return 'รับด้วยตนเอง' + (p ? ' (' + p + ')' : ''); }; }
 
 // ตัวแปรสำหรับ Pagination
 let currentPage = 1;
@@ -240,9 +241,7 @@ function displayAllRequests(requests) {
         <td data-label="ประเภทเอกสาร">${escapeHtml(request.document_name || request.documentName || request.document_type || '-')}</td>
         <td data-label="วันที่ขอ">${formatDate(request.created_at || request.createdAt) || '-'}</td>
         <td data-label="วิธีการรับ">
-          ${(request.delivery_method || request.deliveryMethod) === 'pickup' ? 
-            'รับด้วยตนเอง' : 
-            'รับทางไปรษณีย์'}
+          ${escapeHtml(formatDeliveryMethod(request.delivery_method || request.deliveryMethod, request.pickup_location, 'th'))}
           ${request.urgent ? '<span class="badge bg-warning text-dark ms-2">เร่งด่วน</span>' : ''}
         </td>
         <td data-label="สถานะ">${createStatusBadge(request.status || 'pending')}</td>

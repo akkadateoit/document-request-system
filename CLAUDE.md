@@ -67,7 +67,8 @@ Mounted prefixes:
 
 ### Request data model
 
-- `document_requests` is the order header: `delivery_method` (`pickup`/`mail`), `urgent`, `total_price`, `payment_slip_url`, `status`, and `document_type_id`.
+- `document_requests` is the order header: `delivery_method` (`pickup`/`mail`), `pickup_location`, `urgent`, `total_price`, `payment_slip_url`, `status`, and `document_type_id`.
+- **Pickup location** (added 2026-09-28): when `delivery_method = 'pickup'`, `pickup_location` is `saphanmai` (สะพานใหม่) or `rangsit` (รังสิต). It is enforced by a CHECK constraint and by `PICKUP_LOCATIONS` in `routes/documents.js`. It is NULL for mail and for older requests. The API accepts a missing value so that cached old pages keep working; `request.js` requires the choice. Pickup campuses deliberately do **not** get new `delivery_method` values, so every `delivery_method === 'pickup'` check (urgent fee, pricing, status texts) keeps working. To add a campus, update the CHECK constraint (as a migration), `PICKUP_LOCATIONS`, the radios in `request.html`, `request.pickupLocations` in all locales, and the fallback maps in `formatDeliveryMethod` (`main.js` and the page-script guards) and `services/lineNotification.js`. Display text comes from `formatDeliveryMethod(deliveryMethod, pickupLocation, lang)` in `main.js`. The "ready" status text has a Rangsit variant (`statusInfo.readyPickupRangsit`).
 - `document_request_items` holds line items (quantity, price_per_unit, subtotal).
   - The current UI (`public/js/request.js`) always uses `POST /api/documents/request-multiple`. It writes a header plus items, and the header's `document_type_id` is just the first item.
   - `POST /api/documents/request` is a legacy single-document endpoint. It creates no items rows, and the frontend no longer calls it.
@@ -88,9 +89,9 @@ Mounted prefixes:
 
 `database/schema.sql` was regenerated from the production DB with `pg_dump --schema-only` on 2026-09-28, so it now matches production. `database/seed.sql` holds only reference data: 8 faculties and 22 document types. `scripts/create-admin.js` creates or updates an admin account. The old hard-coded admin hash didn't match its documented password. Things to know:
 - `users` has no `status` column, so `POST /api/admin/user/:id/toggle-status` always fails. No UI calls it.
-- `document_requests.delivery_method` comment mentions `pickup_rangsit`, but only the unused `*.newrangsit` drafts use it. Production data contains only `pickup` and `mail`.
+- `*.newrangsit` files are an abandoned draft that used a `pickup_rangsit` delivery method. It was superseded by `pickup_location`; don't revive it.
 - `request-multiple` runs `CREATE TABLE IF NOT EXISTS document_request_items` on every request.
-- There is no migrations system. When you change the schema, apply the SQL on every server by hand, and regenerate `schema.sql` with `pg_dump --schema-only --no-owner --no-privileges`, removing the `SET` lines. Never dump data tables other than `faculties`/`document_types` into the repo, because the repo is public.
+- Migrations are plain, idempotent SQL files in `database/migrations/` named `YYYY-MM-DD-<name>.sql`. There is no runner and no tracking table, so every file must be safe to re-run (`IF NOT EXISTS`, guarded `DO` blocks). Apply each new file by hand on every existing server, then regenerate `schema.sql` from production with `pg_dump --schema-only --no-owner --no-privileges`, removing the `SET` lines, so fresh installs get the change without running migrations. Never dump data tables other than `faculties`/`document_types` into the repo, because the repo is public.
 
 ### i18n (th / en / zh)
 

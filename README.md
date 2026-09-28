@@ -62,13 +62,20 @@ npm ci                                    # เมื่อ package-lock.json �
 pm2 restart document-request-system       # เมื่อไฟล์ backend เปลี่ยน (หน้าเว็บใน public/ มีผลทันที)
 ```
 
-ตอนนี้ยังไม่มีระบบ migration ถ้ามีการเปลี่ยนโครงสร้าง DB ต้องรัน SQL เองบนทุก server
+ถ้ามีไฟล์ใหม่ใน `database/migrations/` ต้องรันเองบนทุก server ที่ติดตั้งไว้แล้ว ทุกไฟล์รันซ้ำได้โดยไม่เสียหาย:
+
+```bash
+psql -h localhost -U document_request -d document_request_system -v ON_ERROR_STOP=1 -f database/migrations/<ไฟล์>.sql
+```
+
+ติดตั้งใหม่ไม่ต้องรัน migration เพราะ `database/schema.sql` มีครบแล้ว
 
 ## กติกาคิดราคา (ตามหน้าเว็บ)
 
 - ราคาเอกสารแต่ละประเภทตั้งไว้ในตาราง `document_types.price`
 - ส่งทางไปรษณีย์ บวก 200 บาทต่อคำขอ
 - เร่งด่วน (ได้เฉพาะแบบมารับเอง) บวก 50 บาทต่อฉบับ
+- รับด้วยตนเองเลือกสถานที่ได้ 2 แห่ง คือ สะพานใหม่ และ รังสิต ราคาเท่ากัน
 - ราคาคำนวณใน `public/js/request.js`
 
 ## ก่อนเปิดให้สถาบันอื่นใช้ (SaaS)
@@ -80,6 +87,7 @@ pm2 restart document-request-system       # เมื่อไฟล์ backend 
 | ชื่อมหาวิทยาลัย โลโก้ | `public/*.html`, `public/img/logo.png`, `public/locales/*.json` |
 | ข้อมูลบัญชีธนาคาร | `public/js/request.js` (ตัวแปร `BANK_*` ใน `.env` ยังไม่ถูกใช้) |
 | ค่าส่ง 200 / เร่งด่วน 50 บาท | `public/js/request.js` |
+| สถานที่รับเอกสาร (สะพานใหม่, รังสิต) | ดูหัวข้อ "Pickup location" ใน `CLAUDE.md` |
 | ข้อความ API และข้อความ LINE | เป็นภาษาไทยในโค้ด `routes/` และ `services/` |
 
 เรื่องความปลอดภัยที่ควรแก้ก่อนขยายระบบ:

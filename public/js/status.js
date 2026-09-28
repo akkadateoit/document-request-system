@@ -1,5 +1,6 @@
 // escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
 if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+if (typeof formatDeliveryMethod !== 'function') { window.formatDeliveryMethod = function (m, loc) { if (m !== 'pickup') return 'รับทางไปรษณีย์'; var p = { saphanmai: 'สะพานใหม่', rangsit: 'รังสิต' }[loc]; return 'รับด้วยตนเอง' + (p ? ' (' + p + ')' : ''); }; }
 
 // ตรวจสอบว่ามีการเข้าสู่ระบบหรือไม่
 document.addEventListener('DOMContentLoaded', () => {
@@ -120,9 +121,7 @@ function displayRequestsList(requests) {
       <td>${escapeHtml(documentName)}</td>
       <td>${formatDate(request.created_at, currentLang)}</td>
       <td>
-        ${request.delivery_method === 'pickup' ? 
-          (i18n[currentLang]?.request?.pickup || 'รับด้วยตนเอง') : 
-          (i18n[currentLang]?.request?.mail || 'รับทางไปรษณีย์')}
+        ${escapeHtml(formatDeliveryMethod(request.delivery_method, request.pickup_location, currentLang))}
         ${request.urgent ? `<span class="badge bg-warning text-dark">${i18n[currentLang]?.request?.urgentLabel || 'เร่งด่วน'}</span>` : ''}
       </td>
       <td>${createStatusBadge(request.status)}</td>
@@ -363,9 +362,7 @@ function displayRequestDetails(request) {
     
     const detailDeliveryMethod = document.getElementById('detail-delivery-method');
     if (detailDeliveryMethod) {
-      detailDeliveryMethod.textContent = request.delivery_method === 'pickup' ? 
-        (i18n[currentLang]?.request?.pickup || 'รับด้วยตนเอง') : 
-        (i18n[currentLang]?.request?.mail || 'รับทางไปรษณีย์');
+      detailDeliveryMethod.textContent = formatDeliveryMethod(request.delivery_method, request.pickup_location, currentLang);
     
       if (request.urgent) {
         detailDeliveryMethod.innerHTML += ` <span class="badge bg-warning text-dark">${i18n[currentLang]?.request?.urgentLabel || 'เร่งด่วน'}</span>`;
@@ -459,7 +456,9 @@ function displayStatusInfo(request) {
         infoText = i18n[currentLang]?.statusInfo?.processing || 'คำขอของคุณกำลังอยู่ระหว่างการดำเนินการ เจ้าหน้าที่กำลังจัดเตรียมเอกสารให้คุณ';
         break;
       case 'ready':
-        if (request.delivery_method === 'pickup') {
+        if (request.delivery_method === 'pickup' && request.pickup_location === 'rangsit') {
+          infoText = i18n[currentLang]?.statusInfo?.readyPickupRangsit || 'เอกสารของคุณพร้อมให้รับแล้ว กรุณาติดต่อรับเอกสารได้ที่แผนกทะเบียน วิทยาเขตรังสิต';
+        } else if (request.delivery_method === 'pickup') {
           infoText = i18n[currentLang]?.statusInfo?.readyPickup || 'เอกสารของคุณพร้อมให้รับแล้ว กรุณาติดต่อรับเอกสารได้ที่สำนักทะเบียนและประมวลผล ชั้น 1 อาคารอำนวยการ';
         } else {
           infoText = i18n[currentLang]?.statusInfo?.readyMail || 'เอกสารของคุณพร้อมสำหรับจัดส่งแล้ว และจะถูกจัดส่งไปยังที่อยู่ที่คุณระบุไว้ในไม่ช้า';

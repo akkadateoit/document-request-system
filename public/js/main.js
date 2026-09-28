@@ -9,6 +9,16 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+// ข้อความวิธีรับเอกสาร เช่น "รับด้วยตนเอง (รังสิต)" — คืนค่าเป็น text ธรรมดา ต้อง escapeHtml ก่อนใส่ใน innerHTML
+function formatDeliveryMethod(deliveryMethod, pickupLocation, lang) {
+  lang = lang || window.currentLang || 'th';
+  const texts = (window.i18n && window.i18n[lang] && window.i18n[lang].request) || {};
+  if (deliveryMethod !== 'pickup') return texts.mail || 'รับทางไปรษณีย์';
+  const fallbackLocations = { saphanmai: 'สะพานใหม่', rangsit: 'รังสิต' };
+  const place = (texts.pickupLocations && texts.pickupLocations[pickupLocation]) || fallbackLocations[pickupLocation];
+  return (texts.pickup || 'รับด้วยตนเอง') + (place ? ` (${place})` : '');
+}
+
 // ตรวจสอบสถานะการล็อกอินและอัปเดตเมนู
 function checkAuthStatus() {
   const token = localStorage.getItem('token');

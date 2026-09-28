@@ -1,5 +1,6 @@
 // escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
 if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+if (typeof formatDeliveryMethod !== 'function') { window.formatDeliveryMethod = function (m, loc) { if (m !== 'pickup') return 'รับทางไปรษณีย์'; var p = { saphanmai: 'สะพานใหม่', rangsit: 'รังสิต' }[loc]; return 'รับด้วยตนเอง' + (p ? ' (' + p + ')' : ''); }; }
 
 // ตรวจสอบว่าเป็นผู้ดูแลระบบหรือไม่
 document.addEventListener('DOMContentLoaded', () => {
@@ -198,15 +199,13 @@ function displayRequestDetails(request) {
   }
   
   // ข้อมูลวิธีรับเอกสาร
-  let deliveryMethodText = request.delivery_method === 'pickup' ? 
-    (i18n[currentLang]?.request?.pickup || 'รับด้วยตนเอง') : 
-    (i18n[currentLang]?.request?.mail || 'รับทางไปรษณีย์');
+  let deliveryMethodText = formatDeliveryMethod(request.delivery_method, request.pickup_location, currentLang);
   
   document.getElementById('detail-delivery-method').textContent = deliveryMethodText;
   
   // เพิ่มแสดงป้ายเร่งด่วน (ถ้ามี)
   if (request.urgent) {
-    document.getElementById('detail-delivery-method').innerHTML = deliveryMethodText + 
+    document.getElementById('detail-delivery-method').innerHTML = escapeHtml(deliveryMethodText) + 
       ` <span class="badge bg-warning text-dark">${i18n[currentLang]?.request?.urgentLabel || 'เร่งด่วน'}</span>`;
   }
   

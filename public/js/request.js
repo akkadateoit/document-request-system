@@ -1,5 +1,6 @@
 // escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
 if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+if (typeof formatDeliveryMethod !== 'function') { window.formatDeliveryMethod = function (m, loc) { if (m !== 'pickup') return 'รับทางไปรษณีย์'; var p = { saphanmai: 'สะพานใหม่', rangsit: 'รังสิต' }[loc]; return 'รับด้วยตนเอง' + (p ? ' (' + p + ')' : ''); }; }
 
 // ตัวแปรสำหรับเก็บรายการเอกสารที่เลือก
 let selectedDocuments = [];
@@ -509,9 +510,7 @@ function updateSummary(deliveryMethod, isUrgent) {
     summaryHTML += `
       <div class="mb-3">
         <strong>${i18n[currentLang]?.request?.deliveryMethod || 'วิธีการรับเอกสาร'}:</strong>
-        <div>${deliveryMethod === 'pickup' ? 
-          (i18n[currentLang]?.request?.pickup || 'รับด้วยตนเอง') : 
-          (i18n[currentLang]?.request?.mail || 'รับทางไปรษณีย์')}</div>
+        <div>${escapeHtml(formatDeliveryMethod(deliveryMethod, document.querySelector('input[name="pickup_location"]:checked')?.value, currentLang))}</div>
     `;
     
     // ค่าจัดส่ง (ถ้ามี)
@@ -568,6 +567,13 @@ async function submitDocumentRequest(event) {
     return;
   }
   
+  // ตรวจสอบสถานที่รับเอกสาร (ถ้ารับด้วยตนเอง) — ข้ามถ้าหน้าเว็บเวอร์ชันเก่ายังไม่มีช่องนี้
+  const pickupLocation = document.querySelector('input[name="pickup_location"]:checked')?.value || '';
+  if (deliveryMethod === 'pickup' && document.getElementById('pickup-location-container') && !pickupLocation) {
+    showAlert(i18n[currentLang]?.errors?.selectPickupLocation || 'กรุณาเลือกสถานที่รับเอกสาร', 'danger');
+    return;
+  }
+  
   // ตรวจสอบว่ามีการแนบหลักฐานการชำระเงินหรือไม่
   if (!paymentSlip) {
     showAlert(i18n[currentLang]?.errors?.uploadPaymentSlip || 'กรุณาอัปโหลดหลักฐานการชำระเงิน', 'danger');
@@ -609,6 +615,11 @@ async function submitDocumentRequest(event) {
     // เพิ่มที่อยู่ (ถ้ามี)
     if (deliveryMethod === 'mail') {
       formData.append('address', address);
+    }
+    
+    // เพิ่มสถานที่รับเอกสาร (ถ้ารับด้วยตนเอง)
+    if (deliveryMethod === 'pickup' && pickupLocation) {
+      formData.append('pickup_location', pickupLocation);
     }
     
     // เพิ่มไฟล์หลักฐานการชำระเงิน
@@ -676,6 +687,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const addressContainer = document.getElementById('address-container');
         const urgentContainer = document.getElementById('urgent-container');
+        const pickupLocationContainer = document.getElementById('pickup-location-container');
+        if (pickupLocationContainer) {
+          pickupLocationContainer.style.display = method.value === 'pickup' ? 'block' : 'none';
+        }
         
         if (addressContainer && urgentContainer) {
           if (method.value === 'mail') {
@@ -700,6 +715,11 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
     console.log('Delivery method listeners added');
+    
+    // อัปเดตสรุปรายการเมื่อเลือกสถานที่รับเอกสาร
+    document.querySelectorAll('input[name="pickup_location"]').forEach(location => {
+      location.addEventListener('change', () => calculatePrice());
+    });
   } else {
     console.warn('No delivery method inputs found');
   }

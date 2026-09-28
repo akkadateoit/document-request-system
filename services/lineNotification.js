@@ -112,7 +112,11 @@ function createNewRequestMessage(requestData) {
   } = requestData;
 
   // แปลงวิธีการรับเอกสาร
-  const deliveryText = deliveryMethod === 'pickup' ? 'รับด้วยตนเอง' : 'รับทางไปรษณีย์';
+  const pickupLocationNames = { saphanmai: 'สะพานใหม่', rangsit: 'รังสิต' };
+  let deliveryText = deliveryMethod === 'pickup' ? 'รับด้วยตนเอง' : 'รับทางไปรษณีย์';
+  if (deliveryMethod === 'pickup' && pickupLocationNames[requestData.pickupLocation]) {
+    deliveryText += ` (${pickupLocationNames[requestData.pickupLocation]})`;
+  }
   
   // เพิ่มข้อความเร่งด่วน (ถ้ามี)
   const urgentText = urgent ? ' 🔥 (เร่งด่วน)' : '';

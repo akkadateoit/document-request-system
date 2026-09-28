@@ -1,5 +1,6 @@
 // escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
 if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+if (typeof formatDeliveryMethod !== 'function') { window.formatDeliveryMethod = function (m, loc) { if (m !== 'pickup') return 'รับทางไปรษณีย์'; var p = { saphanmai: 'สะพานใหม่', rangsit: 'รังสิต' }[loc]; return 'รับด้วยตนเอง' + (p ? ' (' + p + ')' : ''); }; }
 
 // ฟังก์ชันรอให้ i18n โหลดเสร็จ
 function waitForI18n(callback, maxAttempts = 10, currentAttempt = 0) {
@@ -126,7 +127,7 @@ function displayRecentRequests(requests) {
       <td data-label="${documentTypeLabel}">${escapeHtml(request.document_name)}</td>
       <td data-label="${requestDateLabel}">${formatDate(request.created_at, currentLang)}</td>
       <td data-label="${deliveryMethodLabel}">
-        ${request.delivery_method === 'pickup' ? pickupText : mailText}
+        ${escapeHtml(formatDeliveryMethod(request.delivery_method, request.pickup_location, currentLang))}
         ${request.urgent ? `<span class="badge bg-warning text-dark ms-2">${urgentText}</span>` : ''}
       </td>
       <td data-label="${statusLabel}">${createStatusBadge(request.status)}</td>

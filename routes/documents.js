@@ -3,6 +3,9 @@ const router = express.Router();
 const authenticateJWT = require('../middleware/auth');
 const { notifyNewDocumentRequest } = require('../services/lineNotification'); // เพิ่มบรรทัดนี้
 
+// ค่าที่ใช้ได้ของ document_requests.pickup_location (ต้องตรงกับ CHECK constraint ใน database)
+const PICKUP_LOCATIONS = ['saphanmai', 'rangsit'];
+
 module.exports = (pool, upload) => {
   // ดึงรายการประเภทเอกสาร
   router.get('/types', async (req, res) => {
@@ -127,12 +130,22 @@ module.exports = (pool, upload) => {
     try {
       const { delivery_method, address, urgent, total_price } = req.body;
       const user_id = req.user.id;
-      
+
       // รับข้อมูลเอกสารที่เลือกทั้งหมด
       const documents = JSON.parse(req.body.documents);
-      
+
       if (!documents || documents.length === 0) {
         return res.status(400).json({ message: 'กรุณาเลือกเอกสารอย่างน้อย 1 รายการ' });
+      }
+
+      // สถานที่รับเอกสาร (เฉพาะรับด้วยตนเอง)
+      // ถ้าไม่ส่งมาให้เป็น null: หน้าเว็บเวอร์ชันเก่าที่ยังค้างใน cache ยังไม่มีช่องนี้
+      let pickup_location = null;
+      if (delivery_method === 'pickup' && req.body.pickup_location) {
+        if (!PICKUP_LOCATIONS.includes(req.body.pickup_location)) {
+          return res.status(400).json({ message: 'สถานที่รับเอกสารไม่ถูกต้อง' });
+        }
+        pickup_location = req.body.pickup_location;
       }
       
       // บันทึกหลักฐานการชำระเงิน (ถ้ามี)
@@ -149,8 +162,8 @@ module.exports = (pool, upload) => {
         
         // สร้างคำขอเอกสารหลักสำหรับอ้างอิง
         const mainRequest = await client.query(
-          'INSERT INTO document_requests (user_id, document_type_id, delivery_method, address, urgent, total_price, payment_slip_url, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
-          [user_id, documents[0].id, delivery_method, address, urgent === 'true', total_price, payment_slip_url, 'pending']
+          'INSERT INTO document_requests (user_id, document_type_id, delivery_method, pickup_location, address, urgent, total_price, payment_slip_url, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
+          [user_id, documents[0].id, delivery_method, pickup_location, address, urgent === 'true', total_price, payment_slip_url, 'pending']
         );
         
         const mainRequestId = mainRequest.rows[0].id;
@@ -201,6 +214,7 @@ module.exports = (pool, upload) => {
             studentName: userInfo.rows[0].full_name,
             documentName: documentNames,
             deliveryMethod: delivery_method,
+            pickupLocation: pickup_location,
             urgent: urgent === 'true',
             totalPrice: total_price,
             timestamp: new Date().toISOString()

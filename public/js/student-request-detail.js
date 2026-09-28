@@ -1,5 +1,6 @@
 // escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
 if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+if (typeof formatDeliveryMethod !== 'function') { window.formatDeliveryMethod = function (m, loc) { if (m !== 'pickup') return 'รับทางไปรษณีย์'; var p = { saphanmai: 'สะพานใหม่', rangsit: 'รังสิต' }[loc]; return 'รับด้วยตนเอง' + (p ? ' (' + p + ')' : ''); }; }
 
 // ตรวจสอบว่ามีการเข้าสู่ระบบหรือไม่
 document.addEventListener('DOMContentLoaded', () => {
@@ -219,9 +220,7 @@ function displayRequestDetails(request) {
     
     const detailDeliveryMethod = document.getElementById('detail-delivery-method');
     if (detailDeliveryMethod) {
-      detailDeliveryMethod.textContent = request.delivery_method === 'pickup' ? 
-        (i18n[currentLang]?.request?.pickup || 'รับด้วยตนเอง') : 
-        (i18n[currentLang]?.request?.mail || 'รับทางไปรษณีย์');
+      detailDeliveryMethod.textContent = formatDeliveryMethod(request.delivery_method, request.pickup_location, currentLang);
     
       if (request.urgent) {
         detailDeliveryMethod.innerHTML += ` <span class="badge bg-warning text-dark">${i18n[currentLang]?.request?.urgentLabel || 'เร่งด่วน'}</span>`;
@@ -306,7 +305,9 @@ function displayRequestDetails(request) {
           infoText = 'คำขอของคุณกำลังอยู่ระหว่างการดำเนินการ เจ้าหน้าที่กำลังจัดเตรียมเอกสารให้คุณ';
           break;
         case 'ready':
-          if (request.delivery_method === 'pickup') {
+          if (request.delivery_method === 'pickup' && request.pickup_location === 'rangsit') {
+            infoText = 'เอกสารของคุณพร้อมให้รับแล้ว กรุณาติดต่อรับเอกสารได้ที่แผนกทะเบียน วิทยาเขตรังสิต';
+          } else if (request.delivery_method === 'pickup') {
             infoText = 'เอกสารของคุณพร้อมให้รับแล้ว กรุณาติดต่อรับเอกสารได้ที่สำนักบริการการศึกษา ชั้น 1 อาคาร 1 วิทยาเขตสะพานใหม่';
           } else {
             infoText = 'เอกสารของคุณพร้อมสำหรับจัดส่งแล้ว และจะถูกจัดส่งไปยังที่อยู่ที่คุณระบุไว้ในไม่ช้า';

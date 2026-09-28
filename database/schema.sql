@@ -1,5 +1,5 @@
 -- Database schema for the document request system.
--- Generated with `pg_dump --schema-only` from the production database (PostgreSQL 17) on 2026-09-28,
+-- Generated with `pg_dump --schema-only` from the production database (PostgreSQL 17) on 2026-09-28 (after the pickup_location migration),
 -- so it matches what the running code expects. Load it into an empty database, then load seed.sql:
 --   psql -d <db> -v ON_ERROR_STOP=1 -f database/schema.sql
 --   psql -d <db> -v ON_ERROR_STOP=1 -f database/seed.sql
@@ -97,14 +97,22 @@ CREATE TABLE public.document_requests (
     status character varying(50) DEFAULT 'pending'::character varying,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    has_multiple_items boolean DEFAULT false
+    has_multiple_items boolean DEFAULT false,
+    pickup_location character varying(20),
+    CONSTRAINT document_requests_pickup_location_check CHECK (((pickup_location)::text = ANY ((ARRAY['saphanmai'::character varying, 'rangsit'::character varying])::text[])))
 );
 
 --
 -- Name: COLUMN document_requests.delivery_method; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.document_requests.delivery_method IS 'วิธีการรับเอกสาร: pickup (รับด้วยตนเอง), pickup_rangsit (รับด้วยตนเอง แผนกทะเบียน รังสิต), mail (รับทางไปรษณีย์)';
+COMMENT ON COLUMN public.document_requests.delivery_method IS 'วิธีการรับเอกสาร: pickup (รับด้วยตนเอง ดูสถานที่ที่ pickup_location), mail (รับทางไปรษณีย์)';
+
+--
+-- Name: COLUMN document_requests.pickup_location; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.document_requests.pickup_location IS 'สถานที่รับเอกสารด้วยตนเอง: saphanmai (สะพานใหม่), rangsit (รังสิต); NULL = ไม่ระบุ';
 
 --
 -- Name: document_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
