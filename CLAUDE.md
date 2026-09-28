@@ -124,6 +124,27 @@ The admin navbar is copied into every admin page (`dashboard`, `requests`, `user
 
 Dead files that no page loads: `js/reports.js`, `*.bak*`, `*.save`, `*.newrangsit`, `request.bak.html`, `admin/user-detail2.html`, `testjson.html`, and `routes/*.bak.js`. `admin/line-test.html` calls `/api/admin/test-line-notification`, which doesn't exist; the working test endpoint is `/api/test-line`.
 
+### Forgot password (email reset link)
+
+- **Flow:** `login.html` → `forgot-password.html` → email → `reset-password.html?token=…`. The page logic is in `public/js/password-reset.js`; the API is in `routes/auth.js`:
+  - `POST /api/auth/forgot-password`
+  - `GET /api/auth/forgot-password/available`
+  - `POST /api/auth/reset-password/check`
+  - `POST /api/auth/reset-password`
+- **Token handling:**
+  - The token is 32 random bytes (hex) and is sent only in the email; the `password_resets` table stores its SHA-256.
+  - Tokens are single-use and expire after 30 min. Requesting a new link deletes older unused ones.
+  - A successful reset also clears that account's login lockout.
+- **Enumeration and abuse protection:**
+  - `forgot-password` always answers with the same message, whether or not the email exists.
+  - The email is sent without awaiting it, so response timing doesn't reveal whether the account exists.
+  - Requests are rate-limited to 3/hour per email and 10/hour per IP.
+- **Link URL:** the link is built from `APP_URL` in `.env`, never from the Host header, which would enable token theft via host-header injection.
+- **Referrer:** `reset-password.html` sets `<meta name="referrer" content="no-referrer">` and strips the token from the address bar (it keeps it in `sessionStorage`), so the token doesn't leak to CDNs through Referer.
+- **Mail sending:** `services/mailer.js` uses nodemailer over SMTP (`SMTP_HOST/PORT/SECURE/USER/PASS`, `MAIL_FROM`). The university uses Google Workspace, so use `smtp.gmail.com:465` with an App Password. The server's own postfix is not in the domain's SPF, so mail sent through it would land in spam.
+  - Until SMTP and `APP_URL` are set, `/available` returns false, `login.html` hides the "ลืมรหัสผ่าน?" link, and `forgot-password` returns 503.
+  - Set `MAIL_TRANSPORT=log` on a test instance to print emails, including the link, to the log instead of sending them.
+
 ### LINE notifications
 
 `services/lineNotification.js` uses `@line/bot-sdk` (`line.Client`, push messages). `notifyNewDocumentRequest` is called from both create endpoints in `routes/documents.js`, and a failure there never fails the request.

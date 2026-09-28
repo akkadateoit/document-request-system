@@ -50,6 +50,7 @@
     "postalService": "邮寄服务费"
   },
   "login": {
+    "forgotPassword": "忘记密码？",
     "noAccount": "还没有账户？",
     "title": "登录 - 在线文件申请系统",
     "header": "登录",
@@ -346,6 +347,30 @@
     "uploadPaymentSlip": "支付凭证上传成功。",
     "updateStatus": "文件申请状态更新成功。",
     "addAdmin": "管理员添加成功。"
+  },
+  "forgotPassword": {
+    "title": "忘记密码 - 在线文件申请系统",
+    "header": "忘记密码",
+    "instructions": "请输入注册时使用的邮箱，我们将发送重设密码的链接。",
+    "email": "注册邮箱",
+    "submit": "发送重设链接",
+    "backToLogin": "返回登录",
+    "sent": "如果该邮箱已注册，我们已发送重设密码链接。请查看收件箱（包括垃圾邮件）。"
+  },
+  "resetPassword": {
+    "title": "设置新密码 - 在线文件申请系统",
+    "header": "设置新密码",
+    "checking": "正在检查链接...",
+    "studentId": "学号（用于登录）",
+    "newPassword": "新密码",
+    "passwordHint": "至少6个字符",
+    "confirmPassword": "确认新密码",
+    "submit": "保存新密码",
+    "requestNewLink": "重新获取链接",
+    "invalidLink": "链接已过期或已被使用，请重新获取。",
+    "tooShort": "新密码至少需要6个字符。",
+    "mismatch": "两次输入的密码不一致。",
+    "success": "密码已重设，正在跳转到登录页面..."
   },
   "errors": {
     "passwordMismatch": "密码不匹配。请再次检查。",

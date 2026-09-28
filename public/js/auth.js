@@ -313,6 +313,15 @@ document.addEventListener('DOMContentLoaded', () => {
   
   if (loginForm) {
     loginForm.addEventListener('submit', login);
+    
+    // แสดงลิงก์ "ลืมรหัสผ่าน?" เฉพาะเมื่อ server ตั้งค่าส่งอีเมลแล้ว
+    fetch('/api/auth/forgot-password/available')
+      .then(response => response.ok ? response.json() : { available: false })
+      .then(data => {
+        const link = document.getElementById('forgot-password-link');
+        if (link && data.available) link.style.display = 'block';
+      })
+      .catch(() => { /* ซ่อนไว้ตามเดิม */ });
 
     // ถูกพามาจากหน้าอื่นเพราะ login หมดอายุ (ดู main.js)
     if (new URLSearchParams(window.location.search).get('expired') === '1') {

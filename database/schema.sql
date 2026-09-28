@@ -1,5 +1,5 @@
 -- Database schema for the document request system.
--- Generated with `pg_dump --schema-only` from the production database (PostgreSQL 17) on 2026-09-28 (after the pickup_location migration),
+-- Generated with `pg_dump --schema-only` from the production database (PostgreSQL 17) on 2026-09-28 (after the password_resets migration),
 -- so it matches what the running code expects. Load it into an empty database, then load seed.sql:
 --   psql -d <db> -v ON_ERROR_STOP=1 -f database/schema.sql
 --   psql -d <db> -v ON_ERROR_STOP=1 -f database/seed.sql
@@ -192,6 +192,50 @@ CREATE SEQUENCE public.faculties_id_seq
 ALTER SEQUENCE public.faculties_id_seq OWNED BY public.faculties.id;
 
 --
+-- Name: password_resets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.password_resets (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    token_hash character(64) NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    used_at timestamp with time zone,
+    request_ip character varying(64),
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+--
+-- Name: TABLE password_resets; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.password_resets IS 'token รีเซ็ตรหัสผ่าน (ลืมรหัสผ่าน) — ใช้ได้ครั้งเดียว หมดอายุตาม expires_at';
+
+--
+-- Name: COLUMN password_resets.token_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.password_resets.token_hash IS 'SHA-256 (hex) ของ token ในลิงก์ที่ส่งทางอีเมล';
+
+--
+-- Name: password_resets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.password_resets_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+--
+-- Name: password_resets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.password_resets_id_seq OWNED BY public.password_resets.id;
+
+--
 -- Name: status_history; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -296,6 +340,12 @@ ALTER TABLE ONLY public.document_types ALTER COLUMN id SET DEFAULT nextval('publ
 ALTER TABLE ONLY public.faculties ALTER COLUMN id SET DEFAULT nextval('public.faculties_id_seq'::regclass);
 
 --
+-- Name: password_resets id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_resets ALTER COLUMN id SET DEFAULT nextval('public.password_resets_id_seq'::regclass);
+
+--
 -- Name: status_history id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -334,6 +384,20 @@ ALTER TABLE ONLY public.document_types
 
 ALTER TABLE ONLY public.faculties
     ADD CONSTRAINT faculties_pkey PRIMARY KEY (id);
+
+--
+-- Name: password_resets password_resets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_resets
+    ADD CONSTRAINT password_resets_pkey PRIMARY KEY (id);
+
+--
+-- Name: password_resets password_resets_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_resets
+    ADD CONSTRAINT password_resets_token_hash_key UNIQUE (token_hash);
 
 --
 -- Name: status_history status_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -376,6 +440,12 @@ CREATE INDEX idx_document_request_items_document_type_id ON public.document_requ
 CREATE INDEX idx_document_request_items_request_id ON public.document_request_items USING btree (request_id);
 
 --
+-- Name: idx_password_resets_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_password_resets_user_id ON public.password_resets USING btree (user_id);
+
+--
 -- Name: idx_status_history_request_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -414,6 +484,13 @@ ALTER TABLE ONLY public.document_requests
 
 ALTER TABLE ONLY public.document_requests
     ADD CONSTRAINT document_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+--
+-- Name: password_resets password_resets_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_resets
+    ADD CONSTRAINT password_resets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 --
 -- Name: status_history status_history_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -

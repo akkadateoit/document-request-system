@@ -50,6 +50,7 @@
     "postalService": "Postal Service Fee"
   },
   "login": {
+    "forgotPassword": "Forgot password?",
     "noAccount": "Don't have an account?",
     "title": "Login - Document Request System",
     "header": "Login",
@@ -346,6 +347,30 @@
     "uploadPaymentSlip": "Payment slip uploaded successfully.",
     "updateStatus": "Document request status updated successfully.",
     "addAdmin": "Admin added successfully."
+  },
+  "forgotPassword": {
+    "title": "Forgot Password - Document Request System",
+    "header": "Forgot Password",
+    "instructions": "Enter the email you registered with. We will send you a link to set a new password.",
+    "email": "Registered email",
+    "submit": "Send reset link",
+    "backToLogin": "Back to login",
+    "sent": "If this email is registered, a reset link has been sent. Please check your inbox (and spam folder)."
+  },
+  "resetPassword": {
+    "title": "Set New Password - Document Request System",
+    "header": "Set New Password",
+    "checking": "Checking link...",
+    "studentId": "Student ID (used to log in)",
+    "newPassword": "New password",
+    "passwordHint": "At least 6 characters",
+    "confirmPassword": "Confirm new password",
+    "submit": "Save new password",
+    "requestNewLink": "Request a new link",
+    "invalidLink": "This link has expired or was already used. Please request a new one.",
+    "tooShort": "The new password must be at least 6 characters.",
+    "mismatch": "The passwords do not match.",
+    "success": "Your password has been reset. Redirecting to login..."
   },
   "errors": {
     "passwordMismatch": "Passwords do not match. Please check again.",
