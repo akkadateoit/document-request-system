@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   checkAdmin();
   loadUsers();
   setupSearch();
+  setupUsersPagination();
   setupAddAdmin();
   setupAdminFormValidation();
 });
@@ -124,15 +125,96 @@ async function loadUsers(searchQuery = '') {
       throw new Error('Failed to load users');
     }
     
-    const users = await response.json();
-    displayUsers(users);
+    usersPaging.allUsers = await response.json();
+    usersPaging.currentPage = 1;
+    renderUsersPage();
   } catch (error) {
     console.error('Error loading users:', error);
     showAlert('เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้', 'danger');
   }
 }
 
-// แสดงข้อมูลผู้ใช้
+// แบ่งหน้าฝั่ง browser: API ส่งผู้ใช้ทั้งหมดมา (หลักพันรายการ) แล้วแสดงทีละหน้า
+const usersPaging = { allUsers: [], currentPage: 1, pageSize: 25 };
+
+function setupUsersPagination() {
+  const pageSizeSelect = document.getElementById('users-page-size');
+  if (!pageSizeSelect) return;
+  usersPaging.pageSize = parseInt(pageSizeSelect.value, 10) || 25;
+  pageSizeSelect.addEventListener('change', () => {
+    usersPaging.pageSize = parseInt(pageSizeSelect.value, 10) || 25;
+    usersPaging.currentPage = 1;
+    renderUsersPage();
+  });
+}
+
+function renderUsersPage() {
+  const total = usersPaging.allUsers.length;
+  const totalPages = Math.max(1, Math.ceil(total / usersPaging.pageSize));
+  usersPaging.currentPage = Math.min(Math.max(1, usersPaging.currentPage), totalPages);
+
+  const start = (usersPaging.currentPage - 1) * usersPaging.pageSize;
+  const pageUsers = usersPaging.allUsers.slice(start, start + usersPaging.pageSize);
+  displayUsers(pageUsers);
+
+  const resultsCount = document.getElementById('users-results-count');
+  if (resultsCount) resultsCount.textContent = `พบ ${total.toLocaleString()} รายการ`;
+
+  const info = document.getElementById('users-pagination-info');
+  if (info) {
+    info.textContent = total === 0 ? '' :
+      `แสดง ${(start + 1).toLocaleString()} ถึง ${(start + pageUsers.length).toLocaleString()} จาก ${total.toLocaleString()} รายการ`;
+  }
+
+  renderUsersPaginationButtons(totalPages);
+}
+
+function renderUsersPaginationButtons(totalPages) {
+  const container = document.getElementById('users-pagination');
+  if (!container) return;
+  container.innerHTML = '';
+  if (totalPages <= 1) return;
+
+  const current = usersPaging.currentPage;
+  const addButton = (text, page, disabled = false, active = false) => {
+    const li = document.createElement('li');
+    li.className = `page-item${disabled ? ' disabled' : ''}${active ? ' active' : ''}`;
+    const a = document.createElement('a');
+    a.className = 'page-link';
+    a.href = '#';
+    a.textContent = text;
+    if (!disabled && page !== null) {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (page === usersPaging.currentPage) return;
+        usersPaging.currentPage = page;
+        renderUsersPage();
+        document.getElementById('users-table')?.closest('.card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+    li.appendChild(a);
+    container.appendChild(li);
+  };
+
+  // แสดงสูงสุด 5 หน้ารอบหน้าปัจจุบัน + หน้าแรก/หน้าสุดท้าย
+  let startPage = Math.max(1, current - 2);
+  let endPage = Math.min(totalPages, startPage + 4);
+  startPage = Math.max(1, endPage - 4);
+
+  addButton('‹', current - 1, current === 1);
+  if (startPage > 1) {
+    addButton('1', 1);
+    if (startPage > 2) addButton('…', null, true);
+  }
+  for (let i = startPage; i <= endPage; i++) addButton(String(i), i, false, i === current);
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) addButton('…', null, true);
+    addButton(String(totalPages), totalPages);
+  }
+  addButton('›', current + 1, current === totalPages);
+}
+
+// แสดงข้อมูลผู้ใช้ (เฉพาะหน้าปัจจุบัน)
 function displayUsers(users) {
   const usersTable = document.getElementById('users-table');
   
