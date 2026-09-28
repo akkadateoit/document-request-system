@@ -509,7 +509,9 @@ async function uploadPaymentSlip(event) {
     }
     
     const formData = new FormData();
-    formData.append('payment_slip', paymentSlip);
+    // ย่อรูปก่อนส่ง (ฟังก์ชันอยู่ใน main.js)
+    const slipToUpload = typeof resizeSlipImage === 'function' ? await resizeSlipImage(paymentSlip) : paymentSlip;
+    formData.append('payment_slip', slipToUpload);
     
     const response = await fetch(`/api/documents/upload-payment/${requestId}`, {
       method: 'POST',

@@ -645,7 +645,9 @@ async function submitDocumentRequest(event) {
     }
     
     // เพิ่มไฟล์หลักฐานการชำระเงิน
-    formData.append('payment_slip', paymentSlip);
+    // ย่อรูปก่อนส่ง (ฟังก์ชันอยู่ใน main.js)
+    const slipToUpload = typeof resizeSlipImage === 'function' ? await resizeSlipImage(paymentSlip) : paymentSlip;
+    formData.append('payment_slip', slipToUpload);
     
     // ส่งคำขอไปยังเซิร์ฟเวอร์
     const response = await fetch('/api/documents/request-multiple', {

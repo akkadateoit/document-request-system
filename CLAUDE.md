@@ -154,7 +154,7 @@ Fixed on 2026-09-28:
 - Uploads with long Thai filenames (`ENAMETOOLONG`). Files are now named `<timestamp>-<random hex><ext>`, and older uploads keep their original names.
 - Stored XSS in admin and student pages. All user data in HTML templates now goes through `escapeHtml`.
 - The app crashed at startup when no LINE token was set. The LINE client is now created lazily.
-- **Uploads:** multer only accepts jpg/jpeg/png/gif/webp/heic/heif/pdf, checking both the extension and the mimetype, with a 10 MB limit (`ALLOWED_UPLOAD_TYPES` in `server.js`). The error handler turns rejections into 400 responses with a Thai message. Uploads are served from the app's own origin, so never allow html/svg.
+- **Uploads:** multer only accepts jpg/jpeg/png/gif/webp/heic/heif/pdf, checking both the extension and the mimetype, with a 10 MB limit (`ALLOWED_UPLOAD_TYPES` in `server.js`). The error handler turns rejections into 400 responses with a Thai message. Uploads are served from the app's own origin, so never allow html/svg. The browser also shrinks slip images before upload with `resizeSlipImage()` in `main.js` (longest side 1600px, JPEG 85%). It skips PDF/GIF, small images and files it cannot decode, such as HEIC on Chrome, and keeps the original if the result isn't smaller. It is used in `request.js`, `status.js` and `student-request-detail.js`.
 - **SQL injection via `?lang=`:** every `name_${lang}` query now whitelists `th|en|zh`.
 - `/api/test-line` and `/api/line-config` now require an admin.
 - **Login throttling:** 5 failures per (IP + student_id) or 30 per IP within 15 min returns 429. It is kept in memory in `routes/auth.js` and resets on restart; the client IP comes from `CF-Connecting-IP`.

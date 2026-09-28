@@ -52,6 +52,59 @@ async function checkSlipAvailable(container, url) {
   }
 }
 
+// ย่อรูปสลิปก่อนอัปโหลด: ด้านยาวสุด 1600px, JPEG 85% (ยังอ่านตัวเลขในสลิปได้ชัด)
+// คืนไฟล์เดิมถ้า: เป็น PDF/GIF, รูปเล็กอยู่แล้ว, browser เปิดรูปไม่ได้ (เช่น HEIC บน Chrome) หรือย่อแล้วไม่เล็กลง
+async function resizeSlipImage(file, maxSide = 1600, quality = 0.85) {
+  try {
+    if (!file || !/^image\/(jpeg|png|webp|heic|heif)$/i.test(file.type || '')) return file;
+
+    let source;
+    let width;
+    let height;
+    if (typeof createImageBitmap === 'function') {
+      // imageOrientation: หมุนรูปตาม EXIF ของกล้องมือถือ
+      source = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      width = source.width;
+      height = source.height;
+    } else {
+      const url = URL.createObjectURL(file);
+      try {
+        source = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = url;
+        });
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      width = source.naturalWidth;
+      height = source.naturalHeight;
+    }
+
+    const scale = Math.min(1, maxSide / Math.max(width, height));
+    if (scale === 1 && file.size <= 1024 * 1024) return file; // เล็กอยู่แล้ว
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; // PNG โปร่งใส -> พื้นขาว
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+    if (source.close) source.close();
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+    if (!blob || blob.size >= file.size) return file;
+
+    const baseName = (file.name || 'slip').replace(/\.[^.]+$/, '');
+    return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+  } catch (error) {
+    console.warn('resizeSlipImage: using original file', error);
+    return file;
+  }
+}
+
 // ข้อความวิธีรับเอกสาร เช่น "รับด้วยตนเอง (รังสิต)" — คืนค่าเป็น text ธรรมดา ต้อง escapeHtml ก่อนใส่ใน innerHTML
 function formatDeliveryMethod(deliveryMethod, pickupLocation, lang) {
   lang = lang || window.currentLang || 'th';
