@@ -190,6 +190,28 @@ async function loadDocumentTypes() {
   }
 }
 
+// เปลี่ยนภาษาแล้ว: โหลดชื่อประเภทเอกสารใหม่ตามภาษา และเปลี่ยนชื่อเอกสารที่เลือกไว้แล้วด้วย
+document.addEventListener('languageChanged', async () => {
+  const modalSelect = document.getElementById('modal-document-type');
+  const previousValue = modalSelect ? modalSelect.value : '';
+
+  await loadDocumentTypes();
+
+  // คงตัวเลือกเดิมใน dropdown ไว้ (ถ้ามี)
+  if (modalSelect && previousValue) {
+    modalSelect.value = previousValue;
+  }
+
+  if (Array.isArray(documentTypes) && Array.isArray(selectedDocuments) && selectedDocuments.length > 0) {
+    selectedDocuments.forEach(doc => {
+      const type = documentTypes.find(t => String(t.id) === String(doc.id));
+      if (type) doc.name = type.name;
+    });
+    updateDocumentTable();
+    calculatePrice();
+  }
+});
+
 // เพิ่มฟังก์ชันรอให้ i18n โหลดเสร็จ
 function waitForI18n(callback, maxAttempts = 10, currentAttempt = 0) {
   if (window.i18n && window.i18n[currentLang] && window.i18n[currentLang].request) {

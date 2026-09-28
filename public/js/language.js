@@ -155,8 +155,11 @@ function changeLanguage(lang) {
   
   // อัปเดต global variable
   window.currentLang = currentLang;
-  
+
   updatePageLanguage();
+
+  // แจ้งหน้าเว็บว่าเปลี่ยนภาษาแล้ว: ข้อมูลที่มาจาก database (เช่น ชื่อประเภทเอกสาร) ต้องโหลดใหม่เอง
+  document.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang } }));
 }
 
 // เพิ่มการฟังเหตุการณ์คลิกปุ่มเปลี่ยนภาษา
