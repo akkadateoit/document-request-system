@@ -422,6 +422,43 @@ function setupDeleteModal() {
   }
 }
 
+// รายชื่อคณะสำหรับ dropdown (โหลดครั้งเดียว)
+let facultyNamesCache = null;
+
+async function fillFacultyOptions(currentFaculty) {
+  const select = document.getElementById('edit-faculty');
+  if (!select) return;
+  
+  // ถ้ายังเป็น input แบบเดิม (หน้าเว็บเวอร์ชันเก่าใน cache) ให้ใส่ค่าตรงๆ
+  if (select.tagName !== 'SELECT') {
+    select.value = currentFaculty;
+    return;
+  }
+  
+  if (!facultyNamesCache) {
+    try {
+      const response = await fetch('/api/documents/faculties?lang=th');
+      facultyNamesCache = response.ok ? (await response.json()).map(f => f.name) : [];
+    } catch (error) {
+      console.error('Error loading faculties:', error);
+      facultyNamesCache = [];
+    }
+  }
+  
+  // ค่าที่ผู้ใช้มีอยู่อาจไม่อยู่ในรายชื่อ (เช่น ลงทะเบียนตอนเลือกภาษาอังกฤษ หรือ 'Admin') ให้คงไว้เป็นตัวเลือกด้วย
+  const names = [...facultyNamesCache];
+  if (currentFaculty && !names.includes(currentFaculty)) names.unshift(currentFaculty);
+  
+  select.innerHTML = '<option value="">-- เลือกคณะ --</option>';
+  names.forEach(name => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    select.appendChild(option);
+  });
+  select.value = currentFaculty;
+}
+
 // ตั้งค่า Modal การแก้ไขข้อมูล
 function setupEditModal() {
   console.log('Setting up edit modal with data:', currentUserData);
@@ -436,7 +473,25 @@ function setupEditModal() {
   document.getElementById('edit-full-name').value = currentUserData.full_name || '';
   document.getElementById('edit-email').value = currentUserData.email || '';
   document.getElementById('edit-phone').value = currentUserData.phone || '';
-  document.getElementById('edit-faculty').value = currentUserData.faculty || '';
+  fillFacultyOptions(currentUserData.faculty || '');
+  
+  // บทบาท: ห้ามเปลี่ยนบทบาทของบัญชีที่กำลังล็อกอินอยู่ (กันล็อกตัวเองออกจากหน้า admin)
+  const roleSelect = document.getElementById('edit-role');
+  if (roleSelect) {
+    roleSelect.value = currentUserData.role === 'admin' ? 'admin' : 'student';
+    const isSelf = String(currentUserId) === String(localStorage.getItem('userId'));
+    roleSelect.disabled = isSelf;
+    const roleHelp = document.getElementById('edit-role-help');
+    if (roleHelp) {
+      roleHelp.textContent = isSelf ? 'ไม่สามารถเปลี่ยนบทบาทของบัญชีที่กำลังใช้งานอยู่ได้' : 'ผู้ดูแลระบบเข้าหน้าจัดการระบบได้ทั้งหมด';
+    }
+  }
+  
+  // ล้างช่องรหัสผ่านทุกครั้งที่เปิด modal
+  ['edit-password', 'edit-password-confirm'].forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (field) field.value = '';
+  });
   
   // แปลงวันเกิดเป็นรูปแบบ YYYY-MM-DD
   if (currentUserData.birth_date) {
@@ -492,6 +547,7 @@ async function saveUserChanges() {
     
     // รวบรวมข้อมูลจากฟอร์ม
     const formData = {
+      student_id: document.getElementById('edit-student-id').value.trim(),
       full_name: document.getElementById('edit-full-name').value.trim(),
       email: document.getElementById('edit-email').value.trim(),
       phone: document.getElementById('edit-phone').value.trim(),
@@ -500,7 +556,28 @@ async function saveUserChanges() {
       id_number: document.getElementById('edit-id-number').value.trim() || null
     };
     
-    console.log('Form data collected:', formData);
+    // บทบาท (ไม่ส่งถ้าถูกล็อกไว้ เพราะเป็นบัญชีของตัวเอง)
+    const roleSelect = document.getElementById('edit-role');
+    if (roleSelect && !roleSelect.disabled) {
+      formData.role = roleSelect.value;
+    }
+    
+    // รหัสผ่านใหม่ (ถ้ากรอก)
+    const newPassword = document.getElementById('edit-password')?.value || '';
+    const confirmPassword = document.getElementById('edit-password-confirm')?.value || '';
+    if (newPassword || confirmPassword) {
+      if (newPassword.length < 6) {
+        showAdminAlert('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร', 'danger');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        showAdminAlert('รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน', 'danger');
+        return;
+      }
+      formData.password = newPassword;
+    }
+    
+    console.log('Form data collected:', { ...formData, password: formData.password ? '***' : undefined });
     
     // ตรวจสอบรูปแบบหมายเลขบัตรประชาชน/Passport (ถ้ามีการกรอก)
     if (formData.id_number) {

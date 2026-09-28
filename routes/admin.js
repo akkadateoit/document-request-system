@@ -452,20 +452,54 @@ router.get('/request/:id', authenticateJWT, isAdmin, async (req, res) => {
     
     try {
       const { id } = req.params;
-      const { 
-        full_name, 
-        email, 
-        phone, 
-        faculty, 
-        birth_date, 
-        id_number 
-      } = req.body;
-      
-      // ตรวจสอบว่ามีข้อมูลที่จำเป็น
-      if (!full_name || !email || !phone) {
+      const trim = (v) => (typeof v === 'string' ? v.trim() : v);
+      const student_id = trim(req.body.student_id);
+      const full_name = trim(req.body.full_name);
+      const email = trim(req.body.email);
+      const phone = trim(req.body.phone);
+      const faculty = trim(req.body.faculty);
+      const birth_date = req.body.birth_date;
+      const id_number = trim(req.body.id_number);
+      const role = req.body.role;
+      const password = req.body.password || '';
+
+      // ตรวจสอบว่ามีข้อมูลที่จำเป็น (users.faculty เป็น NOT NULL ใน database)
+      // student_id: ถ้าไม่ส่งมาให้คงค่าเดิม (หน้าเว็บเวอร์ชันเก่าไม่ส่งช่องนี้)
+      if ((student_id !== undefined && !student_id) || !full_name || !email || !phone || !faculty) {
         return res.status(400).json({
           success: false,
           message: 'กรุณากรอกข้อมูลให้ครบถ้วน'
+        });
+      }
+
+      // ความยาวตามคอลัมน์ในตาราง users
+      if ((student_id && student_id.length > 20) || phone.length > 20 || full_name.length > 100 || email.length > 100 || faculty.length > 100) {
+        return res.status(400).json({
+          success: false,
+          message: 'ข้อมูลยาวเกินกำหนด'
+        });
+      }
+
+      // role: ถ้าไม่ส่งมาให้คงค่าเดิม (หน้าเว็บเวอร์ชันเก่าไม่มีช่องนี้)
+      if (role !== undefined && !['student', 'admin'].includes(role)) {
+        return res.status(400).json({
+          success: false,
+          message: 'บทบาทไม่ถูกต้อง'
+        });
+      }
+
+      // กันผู้ดูแลระบบลดสิทธิ์ตัวเองจนเข้าหน้า admin ไม่ได้
+      if (role !== undefined && role !== 'admin' && Number(id) === req.user.id) {
+        return res.status(400).json({
+          success: false,
+          message: 'ไม่สามารถเปลี่ยนบทบาทของบัญชีที่กำลังใช้งานอยู่ได้'
+        });
+      }
+
+      if (password && password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร'
         });
       }
       
@@ -544,27 +578,50 @@ router.get('/request/:id', authenticateJWT, isAdmin, async (req, res) => {
       }
       
       // อัปเดตข้อมูลผู้ใช้
+      // ตรวจสอบว่ารหัสนักศึกษาซ้ำหรือไม่ (ยกเว้นผู้ใช้ปัจจุบัน) — ใช้เป็น username ในการ login
+      const studentIdCheck = student_id === undefined ? { rows: [] } : await client.query(
+        'SELECT id FROM users WHERE student_id = $1 AND id != $2',
+        [student_id, id]
+      );
+
+      if (studentIdCheck.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          message: 'รหัสนักศึกษานี้ถูกใช้งานแล้ว'
+        });
+      }
+
+      // เปลี่ยนรหัสผ่านเฉพาะเมื่อกรอกมา
+      const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
+
       const updateQuery = `
-        UPDATE users 
-        SET 
-          full_name = $1,
-          email = $2,
-          phone = $3,
-          faculty = $4,
-          birth_date = $5,
-          id_number = $6,
+        UPDATE users
+        SET
+          student_id = COALESCE($1, student_id),
+          full_name = $2,
+          email = $3,
+          phone = $4,
+          faculty = $5,
+          birth_date = $6,
+          id_number = $7,
+          role = COALESCE($8, role),
+          password = COALESCE($9, password),
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = $7
+        WHERE id = $10
         RETURNING id, student_id, full_name, email, phone, faculty, birth_date, id_number, role, created_at
       `;
-      
+
       const updateResult = await client.query(updateQuery, [
+        student_id || null,
         full_name,
         email,
         phone,
-        faculty || null,
+        faculty,
         birth_date || null,
         id_number || null,
+        role || null,
+        hashedPassword,
         id
       ]);
       
