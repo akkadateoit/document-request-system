@@ -3,3 +3,7 @@ public/uploads/*
 !public/uploads/.gitkeep
 
 .env
+# editor swap/backup files (may contain .env secrets)
+*.swp
+*.swo
+*~

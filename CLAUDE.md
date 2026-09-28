@@ -35,7 +35,7 @@ The port comes from `PORT` in `.env` (default 3200).
 - Frontend files in `public/` are served statically, so edits go live on the server right away. However, the public domain sits behind **Cloudflare**, and nginx sends `Cache-Control: max-age=14400` for JS. Users can keep getting old copies of individual JS files for 4+ hours, and each file expires on its own schedule, so a new page script can run next to an old `main.js`. Never make a page script depend on a brand-new global from `main.js` without a fallback (see the `escapeHtml` guard at the top of the page scripts). Alternatively, purge the Cloudflare cache after deploying.
 - **Cache busting:** every local `<script src="js/...js?v=YYYYMMDD">` in the live HTML pages carries a version query. HTML is not cached by Cloudflare (`cf-cache-status: DYNAMIC`), so changing the query forces browsers to fetch the new JS right away. **Whenever you change any file in `public/js/`, bump `?v=` in every live page**, for example `sed -i -E 's#(src="(\.\./)?js/[a-z-]+\.js)\?v=[0-9a-z]+"#\1?v=<new>"#g' public/*.html public/admin/*.html`. That regex skips `js/vendor/...`, so bump vendor tags by hand if the vendored files change. Without it, users keep a stale JS copy in their browser for up to 4h. This happened on 2026-09-28: the users page showed the new page-size dropdown but the old script ignored it.
 - `public/uploads/` holds real student payment slips (gitignored). The production database holds thousands of real requests.
-- `.env` is gitignored and was removed from git history. Never commit it. `.env.example` lists the keys.
+- `.env` is gitignored and was removed from git history. Never commit it. `.env.example` lists the keys. Editor swap files (`*.swp`, e.g. `..env.swp` left by vim) contain the same secrets and are gitignored too.
 - nginx (`/etc/nginx/sites-available/document`, template in `deploy/nginx.conf.example`) serves `public/` directly, including `/uploads/`, and proxies only `/api/` to Node. A new top-level route outside `/api/` won't reach Express in production.
 - The GitHub repo `akkadateoit/document-request-system` is **public**. It is meant to be cloned onto new servers (SaaS direction, one institution per install). README.md has the install steps and lists the institution-specific values that are still hard-coded.
 
@@ -125,6 +125,8 @@ The admin navbar is copied into every admin page (`dashboard`, `requests`, `user
 Dead files that no page loads: `js/reports.js`, `*.bak*`, `*.save`, `*.newrangsit`, `request.bak.html`, `admin/user-detail2.html`, `testjson.html`, and `routes/*.bak.js`. `admin/line-test.html` calls `/api/admin/test-line-notification`, which doesn't exist; the working test endpoint is `/api/test-line`.
 
 ### Forgot password (email reset link)
+
+Live in production since 2026-09-28; the owner confirmed a real reset email arrived. It sends through Google Workspace SMTP (`smtp.gmail.com:587`, STARTTLS) as `mis.app@northbkk.ac.th`. Gmail rewrites the `MAIL_FROM` address (noreply@) to the authenticated account unless noreply@ is added as a "Send mail as" alias.
 
 - **Flow:** `login.html` → `forgot-password.html` → email → `reset-password.html?token=…`. The page logic is in `public/js/password-reset.js`; the API is in `routes/auth.js`:
   - `POST /api/auth/forgot-password`
