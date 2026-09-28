@@ -4,17 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Online document request system for North Bangkok University students (ระบบขอเอกสารออนไลน์). Students register, request official documents (transcripts etc.), pick pickup or mail delivery, upload a payment slip, and track status. Admins process requests, manage users, and view reports. New requests trigger a LINE bot notification to staff.
+Online document request system for North Bangkok University students (ระบบขอเอกสารออนไลน์). Students register, request official documents (transcripts, certificates), choose pickup or mail delivery, pay by bank transfer and upload the slip, then track status. Admins process requests, manage users and view reports. Each new request sends a LINE bot message to a staff group.
 
 Stack: Node.js + Express 4, PostgreSQL (`pg`), JWT auth, multer uploads, and a plain HTML/vanilla JS + Bootstrap 5 (CDN) frontend. There is no build step, no bundler, no linter and no test suite.
+
+### How this code was written (read before trusting any file)
+
+Until 2026-09 there was no AI agent or CLI. The owner asked an AI in a chat window, then copy-pasted snippets onto the server by hand. As a result:
+- The **running code and the live PostgreSQL database are the only reliable sources of truth.** `database/schema.sql`, `manuals/*`, code comments and commit messages often describe an intended or earlier state, not what's deployed.
+- Paste artifacts are common: comments like "add this after line ~340" or "replace the old endpoint with this", inconsistent indentation, a function duplicated in several files, and stale `.bak` / `.save` copies left next to live files.
+- Before relying on a column, endpoint or helper, confirm it exists: grep the code that actually runs, or query `information_schema` in the live DB (read-only). Don't infer it from docs or comments.
+- As of 2026-09-28, pm2 had been restarted after the last backend edit, so the files on disk match the running process. If a backend file's mtime is newer than the pm2 start time (`pm2 describe document-request-system`), the running code differs from the file.
 
 ## Commands
 
 ```bash
-npm install
+npm ci
 npm run dev        # nodemon server.js
 npm start          # node server.js
-psql -U postgres -d document_request_system -a -f database/schema.sql   # create schema
+# fresh install (see README.md for the full new-server procedure)
+psql -d document_request_system -v ON_ERROR_STOP=1 -f database/schema.sql
+psql -d document_request_system -v ON_ERROR_STOP=1 -f database/seed.sql
+node scripts/create-admin.js <username> <password> "<full name>" <email>
 ```
 
 The port comes from `PORT` in `.env` (default 3200).
@@ -22,31 +33,107 @@ The port comes from `PORT` in `.env` (default 3200).
 **This directory is the live production deployment.** It runs under pm2 as `document-request-system` with watch disabled:
 - Backend changes (`server.js`, `routes/`, `middleware/`, `services/`) take effect only after `pm2 restart document-request-system`. Logs: `pm2 logs document-request-system`.
 - Frontend files in `public/` are served statically, so edits go live right away.
-- `public/uploads/` holds real student payment slips (gitignored).
+- `public/uploads/` holds real student payment slips (gitignored). The production database holds thousands of real requests.
+- `.env` is gitignored and was removed from git history. Never commit it. `.env.example` lists the keys.
+- nginx (`/etc/nginx/sites-available/document`, template in `deploy/nginx.conf.example`) serves `public/` directly, including `/uploads/`, and proxies only `/api/` to Node. A new top-level route outside `/api/` won't reach Express in production.
+- The GitHub repo `akkadateoit/document-request-system` is **public**. It is meant to be cloned onto new servers (SaaS direction, one institution per install). README.md has the install steps and lists the institution-specific values that are still hard-coded.
 
 ## Architecture
 
-**Server wiring (`server.js`)** creates its own `pg` Pool and multer instance and injects them into route factories: `require('./routes/auth')(pool)`, `require('./routes/documents')(pool, upload)`, and so on. New route modules should follow the same `module.exports = (pool[, upload]) => router` pattern. `database/connection.js` exports a separate pool, but the routes don't use it. Admin/report routes and the LINE service are loaded in `try/catch`, so a require error in them is logged as "not found, skipping" instead of crashing. If admin endpoints return 404, check the startup log.
+### Server wiring
 
-Mounted prefixes: `/api/auth`, `/api/documents`, `/api/admin`, `/api/reports`, plus `/api/test-line` and `/api/line-config`.
+`server.js` creates its own `pg` Pool and multer instance and injects them into route factories: `require('./routes/auth')(pool)`, `require('./routes/documents')(pool, upload)`, and so on. New route modules should follow the same `module.exports = (pool[, upload]) => router` pattern. The `router` object is created at module scope, outside the factory. `database/connection.js` exports a second pool that nothing uses.
 
-**Auth**: `middleware/auth.js` (`authenticateJWT`) verifies `Authorization: Bearer <token>` and sets `req.user = { id, student_id, role }`. `middleware/admin.js` (`isAdmin`) requires `role === 'admin'`. Tokens expire after 24h. The frontend stores `token`, `userRole`, `userId`, `userName` and `studentId` in `localStorage` and adds the header to each `fetch` by hand.
+Admin/report routes and the LINE service are loaded in `try/catch`, so a syntax or require error in them is logged as "not found, skipping" and those endpoints return 404 instead of crashing the app. After a restart, check the startup log.
 
-**Request data model** (`database/schema.sql`):
-- `document_requests` is the order header: delivery method (`pickup`/`mail`), `urgent`, `total_price`, `payment_slip_url`, `status`.
-- `document_request_items` holds the line items (quantity, price_per_unit, subtotal) for multi-document orders created by `POST /api/documents/request-multiple`. For those orders the header's `document_type_id` is just the first item. `has_multiple_items` in API responses is computed at read time from whether items rows exist, not stored. Older single-document requests (`POST /request`) have no items rows, so queries that read requests must handle both shapes.
-- `status_history` is an audit log. Valid statuses are `pending → processing → ready → completed` or `rejected`, enforced in `routes/admin.js` (`PUT /request/:id/status`), which updates the status and inserts history inside one transaction.
-- Other schema changes have been applied ad hoc (see `ALTER TABLE ... IF NOT EXISTS`, and a `CREATE TABLE IF NOT EXISTS` inside the request-multiple handler). `manuals/schema.sql` is an older copy that differs from `database/schema.sql`.
+Mounted prefixes:
+- `/api/auth` (register, login, `GET /user`)
+- `/api/documents` (student)
+- `/api/admin` (admin)
+- `/api/reports` (admin)
+- `/api/test-line` and `/api/line-config`, defined inline in `server.js` with no auth
 
-**i18n (th / en / zh)** works on both sides:
-- Frontend: `public/js/language.js` loads `public/locales/{th,en,zh}.json`, translates elements with `data-i18n="section.key"`, stores the choice in `localStorage.language`, and dispatches an `i18nReady` event. Page scripts that need translations should wait for that event or `window.i18nLoaded`. Add new keys to all three locale files.
-- DB: lookup tables have `name_th`/`name_en`/`name_zh` columns, and endpoints pick one with the `?lang=` query param.
-- API error messages are hard-coded in Thai.
+`/api/admin/line-config` is the authenticated copy of `/api/line-config`.
 
-**Frontend layout**: each HTML page loads `language.js` and `main.js` (shared helpers: `checkAuthStatus`, `logout`, `translateStatus`, `createStatusBadge`, `formatDate`, `formatCurrency`, `showAlert`), then a page-specific script. Student pages are in `public/`, admin pages in `public/admin/`; admin pages also load `admin.js` / `admin-common.js`. Files ending in `.bak`, `.bak.js`, `.save`, `.newrangsit` or `2.html` are stale copies, not used.
+### Auth
 
-**LINE notifications** (`services/lineNotification.js`, `@line/bot-sdk`): `notifyNewDocumentRequest` is called from `routes/documents.js` when a request is created. Recipients come from `LINE_GROUP_ID`, `LINE_ADMIN_USER_ID` or `LINE_NOTIFY_USERS` (comma-separated). Status changes do not send notifications. For setup and finding a group ID, see `manuals/LINE_SETUP.md` and `utils/findGroupId.js`.
+- `middleware/auth.js` (`authenticateJWT`) verifies `Authorization: Bearer <token>` and sets `req.user = { id, student_id, role }`. Tokens expire after 24h.
+- `middleware/admin.js` (`isAdmin`) requires `role === 'admin'`.
+- `GET /api/auth/user` verifies the token itself instead of using the middleware.
+- The frontend stores `token`, `userRole`, `userId`, `userName` and `studentId` in `localStorage` and adds the header to each `fetch` by hand.
+- Users log in with `student_id`. Admins are `users` rows with `role='admin'` and `faculty='Admin'`, created through `POST /api/admin/add-admin`.
+- Admin password reset sets the password to the fixed value `123456` and returns it.
+- `isValidDate` / `isValidIdNumber` (Thai ID is 13 digits, passport is 6–12 alphanumeric) are copied at the bottom of both `routes/auth.js` and `routes/admin.js`. Keep both copies in sync.
+
+### Request data model
+
+- `document_requests` is the order header: `delivery_method` (`pickup`/`mail`), `urgent`, `total_price`, `payment_slip_url`, `status`, and `document_type_id`.
+- `document_request_items` holds line items (quantity, price_per_unit, subtotal).
+  - The current UI (`public/js/request.js`) always uses `POST /api/documents/request-multiple`. It writes a header plus items, and the header's `document_type_id` is just the first item.
+  - `POST /api/documents/request` is a legacy single-document endpoint. It creates no items rows, and the frontend no longer calls it.
+  - Read endpoints (`my-requests`, `request/:id`, admin `request/:id`) attach `document_items`, `item_count` and `has_multiple_items` whenever items rows exist. The DB column `has_multiple_items` exists but is never written, so don't rely on it.
+  - Queries joining only `document_types` via the header, such as reports' `requestsByType`, the admin list and the dashboard's recent requests, show only the first document of a multi-item order.
+- **Pricing is computed on the client, and the web page's rules are the official ones** (the owner decided this):
+  - Start with the sum of the items.
+  - Add 200 THB when delivery is `mail`.
+  - Add 50 THB × the total document count when urgent. Urgent is allowed only for pickup.
+
+  `request.js` sends `total_price` and each item's `price`/`subtotal`, and `request-multiple` stores them as-is. The legacy `/request` endpoint charges a flat +50 for urgent instead, which is not the official rule. If you add server-side price checks, copy the web page's rules. To change fees, update `calculatePrice`, the summary block and `submitRequest` in `request.js`.
+- Bank transfer details (bank, account number, account name) are hard-coded in `request.js`. The `BANK_ACCOUNT`/`BANK_NAME` env vars are unused.
+- Payment slips are saved by multer to `public/uploads/<timestamp>-<originalname>` and served at `/uploads/...`. A student can re-upload through `POST /api/documents/upload-payment/:request_id`.
+- `status_history` is the audit log. Valid statuses are `pending`, `processing`, `ready`, `completed` and `rejected`, checked only in `PUT /api/admin/request/:id/status`. That handler updates the status and inserts history in one transaction. Creating a request writes no initial `pending` history row. Status changes do not notify anyone.
+- Admin `DELETE /user/:id` manually deletes history, then items, then requests, then the user, all in one transaction. Admin accounts cannot be deleted.
+
+### Database schema
+
+`database/schema.sql` was regenerated from the production DB with `pg_dump --schema-only` on 2026-09-28, so it now matches production. `database/seed.sql` holds only reference data: 8 faculties and 22 document types. `scripts/create-admin.js` creates or updates an admin account. The old hard-coded admin hash didn't match its documented password. Things to know:
+- `users` has no `status` column, so `POST /api/admin/user/:id/toggle-status` always fails. No UI calls it.
+- `document_requests.delivery_method` comment mentions `pickup_rangsit`, but only the unused `*.newrangsit` drafts use it. Production data contains only `pickup` and `mail`.
+- `request-multiple` runs `CREATE TABLE IF NOT EXISTS document_request_items` on every request.
+- There is no migrations system. When you change the schema, apply the SQL on every server by hand, and regenerate `schema.sql` with `pg_dump --schema-only --no-owner --no-privileges`, removing the `SET` lines. Never dump data tables other than `faculties`/`document_types` into the repo, because the repo is public.
+
+### i18n (th / en / zh)
+
+- Frontend: `public/js/language.js` loads `public/locales/{th,en,zh}.json`, translates elements with `data-i18n="section.key"`, stores the choice in `localStorage.language`, sets `window.i18n` / `window.currentLang`, and dispatches an `i18nReady` event. Page scripts that build translated DOM wait for that event or poll `window.i18nLoaded`. Add new keys to all three files. `th.json` is the most complete; `en` and `zh` are missing `login.noAccount` and `admin.statusInfo.*`.
+- DB: `document_types` and `faculties` have `name_th`/`name_en`/`name_zh` columns, and endpoints choose one by building ``name_${req.query.lang}`` into the SQL string. That value isn't validated, which is an SQL injection risk. Whitelist `th|en|zh` when you touch these queries.
+- API messages, LINE messages and reports (`dt.name_th`) are in Thai only.
+
+### Frontend layout
+
+Each page loads `language.js`, then `main.js`, then page-specific scripts. The shared helpers are global functions.
+
+| Page | Scripts after `language.js` + `main.js` |
+|---|---|
+| `login.html`, `register.html` | `auth.js` |
+| `dashboard.html` | `dashboard.js` |
+| `request.html` | `request.js` (multi-document cart, pricing, QR code via CDN) |
+| `status.html` | `status.js` |
+| `request-detail.html` | `student-request-detail.js` |
+| `admin/dashboard.html` | `admin-common.js`, `admin-dashboard.js` |
+| `admin/reports.html` | `admin-common.js`, `admin-reports.js` |
+| `admin/user-detail.html` | `admin-common.js`, `user-detail.js` |
+| `admin/requests.html` | `admin.js`, `admin-requests.js` |
+| `admin/request-detail.html` | `admin.js`, `request-detail.js` |
+| `admin/users.html` | `admin.js`, `users.js` |
+
+`main.js`, `admin.js` and `admin-common.js` each define their own `checkAdmin`, `createStatusBadge`, `translateStatus` and `formatDate`, plus `admin.js`/`admin-common.js` both define `updateRequestStatus` and `setupStatusUpdateModal`. Whichever script loads last wins, so change the copy that the page actually uses (see the table).
+
+Dead files that no page loads: `js/reports.js`, `*.bak*`, `*.save`, `*.newrangsit`, `request.bak.html`, `admin/user-detail2.html`, `testjson.html`, and `routes/*.bak.js`. `admin/line-test.html` calls `/api/admin/test-line-notification`, which doesn't exist; the working test endpoint is `/api/test-line`.
+
+### LINE notifications
+
+`services/lineNotification.js` uses `@line/bot-sdk` (`line.Client`, push messages). `notifyNewDocumentRequest` is called from both create endpoints in `routes/documents.js`, and a failure there never fails the request.
+
+Recipients, in order of priority:
+1. `LINE_GROUP_ID`
+2. `LINE_NOTIFY_USERS` (comma-separated)
+3. `LINE_ADMIN_USER_ID`
+
+The first one that is set wins. `GET /api/test-line` sends a real test message to the group and has no auth. `utils/findGroupId.js` is a standalone webhook server for discovering the group ID. See also `manuals/LINE_SETUP.md`.
 
 ## Environment
 
-`.env` keys: `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`, `PORT`, `JWT_SECRET`, `BANK_ACCOUNT`, `BANK_NAME`, `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ID`, `LINE_GROUP_ID` (and optionally `LINE_ADMIN_USER_ID`, `LINE_NOTIFY_USERS`).
+`.env` keys:
+- Database and server: `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`, `PORT`, `JWT_SECRET`
+- LINE: `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ID`, `LINE_GROUP_ID`, and optionally `LINE_NOTIFY_USERS` or `LINE_ADMIN_USER_ID`
+- Present but unused: `BANK_ACCOUNT`, `BANK_NAME`

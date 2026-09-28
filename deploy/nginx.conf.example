@@ -1,0 +1,29 @@
+# nginx site for the document request system (based on the production config, 2026-09).
+# nginx serves public/ directly (HTML/JS/CSS and /uploads/ payment slips); only /api/ goes to Node.
+# Replace the domain and path, then get TLS with: certbot --nginx -d document.example.ac.th
+
+server {
+    listen 80;
+    server_name document.example.ac.th;
+
+    root /var/www/app/document-request-system/public;
+    index index.html login.html;
+
+    # Payment slip uploads (multer has no size limit of its own)
+    client_max_body_size 20M;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:3200/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
