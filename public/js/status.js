@@ -1,3 +1,6 @@
+// escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
+if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+
 // ตรวจสอบว่ามีการเข้าสู่ระบบหรือไม่
 document.addEventListener('DOMContentLoaded', () => {
   console.log('Status page loaded');
@@ -114,7 +117,7 @@ function displayRequestsList(requests) {
     }
     
     row.innerHTML = `
-      <td>${documentName}</td>
+      <td>${escapeHtml(documentName)}</td>
       <td>${formatDate(request.created_at, currentLang)}</td>
       <td>
         ${request.delivery_method === 'pickup' ? 
@@ -263,7 +266,7 @@ function displayStatusHistory(history) {
     row.innerHTML = `
       <td>${formatDate(item.created_at, currentLang)}</td>
       <td>${createStatusBadge(item.status)}</td>
-      <td>${item.note || '-'}</td>
+      <td>${escapeHtml(item.note || '-')}</td>
     `;
     
     statusHistoryTable.appendChild(row);
@@ -318,7 +321,7 @@ function displayRequestDetails(request) {
               <tbody>
                 ${request.document_items.map(item => `
                   <tr>
-                    <td>${item.document_name}</td>
+                    <td>${escapeHtml(item.document_name)}</td>
                     <td class="text-center">${item.quantity}</td>
                     <td class="text-end">${formatCurrency(item.price_per_unit, currentLang)}</td>
                     <td class="text-end">${formatCurrency(item.subtotal, currentLang)}</td>
@@ -404,11 +407,11 @@ function displayRequestDetails(request) {
         
         if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
           detailPaymentSlip.innerHTML = `
-            <img src="${request.payment_slip_url}" alt="Payment Slip" class="img-fluid" style="max-height: 300px;">
+            <img src="${escapeHtml(request.payment_slip_url)}" alt="Payment Slip" class="img-fluid" style="max-height: 300px;">
           `;
         } else {
           detailPaymentSlip.innerHTML = `
-            <p><i class="bi bi-file-earmark-pdf"></i> <a href="${request.payment_slip_url}" target="_blank">${i18n[currentLang]?.requestDetail?.viewPaymentSlip || 'ดูหลักฐานการชำระเงิน'}</a></p>
+            <p><i class="bi bi-file-earmark-pdf"></i> <a href="${escapeHtml(request.payment_slip_url)}" target="_blank">${i18n[currentLang]?.requestDetail?.viewPaymentSlip || 'ดูหลักฐานการชำระเงิน'}</a></p>
           `;
         }
         

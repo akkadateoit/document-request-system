@@ -1,3 +1,6 @@
+// escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
+if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+
 // ตรวจสอบว่าเป็นผู้ดูแลระบบหรือไม่
 document.addEventListener('DOMContentLoaded', () => {
   console.log('User detail page loaded');
@@ -364,7 +367,7 @@ function displayUserRequests(requests) {
     
     row.innerHTML = `
       <td>${request.id}</td>
-      <td>${request.document_name || '-'}</td>
+      <td>${escapeHtml(request.document_name || '-')}</td>
       <td>${formatDate(request.created_at, currentLang)}</td>
       <td>${createStatusBadge(request.status)}</td>
       <td>${formatCurrency(request.total_price, currentLang)}</td>

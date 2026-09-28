@@ -7,7 +7,14 @@ const config = {
   channelSecret: process.env.LINE_CHANNEL_SECRET,
 };
 
-const client = new line.Client(config);
+// สร้าง client เมื่อใช้งานจริง: line.Client จะ throw ถ้าไม่มี token ทำให้ server start ไม่ขึ้น
+let lineClient = null;
+const client = {
+  pushMessage: (...args) => {
+    if (!lineClient) lineClient = new line.Client(config);
+    return lineClient.pushMessage(...args);
+  }
+};
 
 // ฟังก์ชันหา Target ID สำหรับส่งข้อความ
 function getNotificationTargets() {

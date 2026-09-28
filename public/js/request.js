@@ -1,3 +1,6 @@
+// escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
+if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+
 // ตัวแปรสำหรับเก็บรายการเอกสารที่เลือก
 let selectedDocuments = [];
 let documentTypes = [];
@@ -311,7 +314,7 @@ function updateDocumentTable() {
     const row = document.createElement('tr');
     
     row.innerHTML = `
-      <td>${doc.name}</td>
+      <td>${escapeHtml(doc.name)}</td>
       <td>${formatCurrency(doc.price, localStorage.getItem('language') || 'th')}</td>
       <td>
         ${createQuantityControl(doc, index)}
@@ -494,7 +497,7 @@ function updateSummary(deliveryMethod, isUrgent) {
     
     // เพิ่มรายการเอกสารแต่ละรายการ
     selectedDocuments.forEach(doc => {
-      summaryHTML += `<li>${doc.name} ( x ${doc.quantity} ) = ${formatCurrency(doc.subtotal, currentLang)}</li>`;
+      summaryHTML += `<li>${escapeHtml(doc.name)} ( x ${doc.quantity} ) = ${formatCurrency(doc.subtotal, currentLang)}</li>`;
     });
     
     summaryHTML += `

@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
+const crypto = require('crypto');
 const multer = require('multer');
 const { Pool } = require('pg');
 
@@ -31,7 +32,10 @@ const storage = multer.diskStorage({
     cb(null, path.join(__dirname, 'public/uploads'));
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + file.originalname);
+    // ไม่ใช้ชื่อไฟล์เดิม: ชื่อภาษาไทยยาวๆ เกิน 255 bytes ทำให้บันทึกไม่ได้ (ENAMETOOLONG)
+    // เก็บเฉพาะนามสกุลไว้ เพราะหน้าเว็บใช้แยกรูปภาพกับ PDF
+    const ext = path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '').slice(0, 10);
+    cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`);
   }
 });
 const upload = multer({ storage: storage });

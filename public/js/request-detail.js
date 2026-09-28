@@ -1,3 +1,6 @@
+// escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
+if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+
 // ตรวจสอบว่าเป็นผู้ดูแลระบบหรือไม่
 document.addEventListener('DOMContentLoaded', () => {
   checkAdmin();
@@ -120,8 +123,8 @@ function displayStatusHistory(history) {
     row.innerHTML = `
       <td>${formatDate(item.created_at, currentLang)}</td>
       <td>${createStatusBadge(item.status)}</td>
-      <td>${item.note || '-'}</td>
-      <td>${item.created_by_name || 'ระบบ'}</td>
+      <td>${escapeHtml(item.note || '-')}</td>
+      <td>${escapeHtml(item.created_by_name || 'ระบบ')}</td>
     `;
     
     statusHistoryTable.appendChild(row);
@@ -152,7 +155,7 @@ function displayRequestDetails(request) {
           <tbody>
             ${request.document_items.map(item => `
               <tr>
-                <td>${item.document_name}</td>
+                <td>${escapeHtml(item.document_name)}</td>
                 <td class="text-center">${item.quantity}</td>
                 <td class="text-end">${formatCurrency(item.price_per_unit)}</td>
                 <td class="text-end">${formatCurrency(item.subtotal)}</td>
@@ -308,12 +311,12 @@ function displayRequestDetails(request) {
     
     if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
       document.getElementById('detail-payment-slip').innerHTML = `
-        <img src="${request.payment_slip_url}" alt="Payment Slip" class="img-fluid" style="max-height: 300px; cursor: pointer" 
-        onclick="showImageModal('${request.payment_slip_url}')">
+        <img src="${escapeHtml(request.payment_slip_url)}" alt="Payment Slip" class="img-fluid" style="max-height: 300px; cursor: pointer" 
+        onclick="showImageModal(this.src)">
       `;
     } else {
       document.getElementById('detail-payment-slip').innerHTML = `
-        <p><i class="bi bi-file-earmark-pdf"></i> <a href="${request.payment_slip_url}" target="_blank">${i18n[currentLang]?.requestDetail?.viewPaymentSlip || 'ดูหลักฐานการชำระเงิน'}</a></p>
+        <p><i class="bi bi-file-earmark-pdf"></i> <a href="${escapeHtml(request.payment_slip_url)}" target="_blank">${i18n[currentLang]?.requestDetail?.viewPaymentSlip || 'ดูหลักฐานการชำระเงิน'}</a></p>
       `;
     }
   } else {
@@ -444,10 +447,10 @@ function printReceipt() {
         if (cells.length >= 4) {
           documentListHTML += `
             <tr>
-              <td>${cells[0].textContent}</td>
-              <td class="quantity">${cells[1].textContent}</td>
-              <td class="price">${cells[2].textContent}</td>
-              <td class="subtotal">${cells[3].textContent}</td>
+              <td>${escapeHtml(cells[0].textContent)}</td>
+              <td class="quantity">${escapeHtml(cells[1].textContent)}</td>
+              <td class="price">${escapeHtml(cells[2].textContent)}</td>
+              <td class="subtotal">${escapeHtml(cells[3].textContent)}</td>
             </tr>
           `;
         }
@@ -463,8 +466,8 @@ function printReceipt() {
           if (cells.length >= 2) {
             documentListHTML += `
               <tr>
-                <th colspan="3" style="text-align: right;">${cells[0].textContent}</th>
-                <th style="text-align: right;">${cells[1].textContent}</th>
+                <th colspan="3" style="text-align: right;">${escapeHtml(cells[0].textContent)}</th>
+                <th style="text-align: right;">${escapeHtml(cells[1].textContent)}</th>
               </tr>
             `;
           }
@@ -477,7 +480,7 @@ function printReceipt() {
     } else {
       // มีเอกสารเดียว
       const documentName = document.getElementById('detail-document-name').textContent;
-      documentListHTML = `<p>${documentName}</p>`;
+      documentListHTML = `<p>${escapeHtml(documentName)}</p>`;
     }
     
     // สร้าง HTML สำหรับพิมพ์
@@ -486,7 +489,7 @@ function printReceipt() {
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>ใบรับคำขอเอกสาร #${requestId}</title>
+        <title>ใบรับคำขอเอกสาร #${escapeHtml(requestId)}</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
           body {
@@ -621,13 +624,13 @@ function printReceipt() {
           
           <div class="info">
             <div class="info-group">
-              <p><strong>เลขที่คำขอ:</strong> ${requestId}</p>
-              <p><strong>วันที่ขอ:</strong> ${createdAt}</p>
+              <p><strong>เลขที่คำขอ:</strong> ${escapeHtml(requestId)}</p>
+              <p><strong>วันที่ขอ:</strong> ${escapeHtml(createdAt)}</p>
             </div>
             
             <div class="info-group">
-              <p><strong>ชื่อนักศึกษา:</strong> ${studentName}</p>
-              <p><strong>รหัสนักศึกษา:</strong> ${studentId}</p>
+              <p><strong>ชื่อนักศึกษา:</strong> ${escapeHtml(studentName)}</p>
+              <p><strong>รหัสนักศึกษา:</strong> ${escapeHtml(studentId)}</p>
             </div>
             
             <div class="info-group">
@@ -636,8 +639,8 @@ function printReceipt() {
             </div>
             
             <div class="info-group">
-              <p><strong>วิธีการรับเอกสาร:</strong> ${deliveryMethod}</p>
-              <p><strong>ราคารวม:</strong> ${totalPrice}</p>
+              <p><strong>วิธีการรับเอกสาร:</strong> ${escapeHtml(deliveryMethod)}</p>
+              <p><strong>ราคารวม:</strong> ${escapeHtml(totalPrice)}</p>
             </div>
           </div>
           

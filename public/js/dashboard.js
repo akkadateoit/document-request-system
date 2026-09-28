@@ -1,3 +1,6 @@
+// escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
+if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+
 // ฟังก์ชันรอให้ i18n โหลดเสร็จ
 function waitForI18n(callback, maxAttempts = 10, currentAttempt = 0) {
   if (window.i18n && window.i18n[currentLang] && window.i18n[currentLang].dashboard && window.i18n[currentLang].errors) {
@@ -120,7 +123,7 @@ function displayRecentRequests(requests) {
     const viewDetailsText = getTranslation('dashboard.viewDetails', 'ดูรายละเอียด');
     
     row.innerHTML = `
-      <td data-label="${documentTypeLabel}">${request.document_name}</td>
+      <td data-label="${documentTypeLabel}">${escapeHtml(request.document_name)}</td>
       <td data-label="${requestDateLabel}">${formatDate(request.created_at, currentLang)}</td>
       <td data-label="${deliveryMethodLabel}">
         ${request.delivery_method === 'pickup' ? pickupText : mailText}

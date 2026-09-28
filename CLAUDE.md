@@ -32,7 +32,7 @@ The port comes from `PORT` in `.env` (default 3200).
 
 **This directory is the live production deployment.** It runs under pm2 as `document-request-system` with watch disabled:
 - Backend changes (`server.js`, `routes/`, `middleware/`, `services/`) take effect only after `pm2 restart document-request-system`. Logs: `pm2 logs document-request-system`.
-- Frontend files in `public/` are served statically, so edits go live right away.
+- Frontend files in `public/` are served statically, so edits go live on the server right away. However, the public domain sits behind **Cloudflare**, and nginx sends `Cache-Control: max-age=14400` for JS. Users can keep getting old copies of individual JS files for 4+ hours, and each file expires on its own schedule, so a new page script can run next to an old `main.js`. Never make a page script depend on a brand-new global from `main.js` without a fallback (see the `escapeHtml` guard at the top of the page scripts). Alternatively, purge the Cloudflare cache after deploying.
 - `public/uploads/` holds real student payment slips (gitignored). The production database holds thousands of real requests.
 - `.env` is gitignored and was removed from git history. Never commit it. `.env.example` lists the keys.
 - nginx (`/etc/nginx/sites-available/document`, template in `deploy/nginx.conf.example`) serves `public/` directly, including `/uploads/`, and proxies only `/api/` to Node. A new top-level route outside `/api/` won't reach Express in production.
@@ -134,21 +134,25 @@ The first one that is set wins. `GET /api/test-line` sends a real test message t
 ## Developing new features
 
 There are no automated tests. Verify changes as follows:
-- **Smoke-test backend changes against a throwaway DB before restarting production.** Create a temporary database, load `database/schema.sql` + `database/seed.sql`, create an admin with `scripts/create-admin.js`, then run a second server instance: `DB_NAME=<tmpdb> PORT=3299 LINE_CHANNEL_ACCESS_TOKEN= node server.js`. Blanking the LINE token matters, because otherwise test requests send real messages to the staff LINE group (dotenv never overrides variables that are already set). Exercise the endpoints with `curl`, then drop the DB.
+- **Smoke-test backend changes against a throwaway DB before restarting production.** Create a temporary database, load `database/schema.sql` + `database/seed.sql`, create an admin with `scripts/create-admin.js`, then run a second server instance: `env DB_NAME=<tmpdb> PORT=3299 LINE_CHANNEL_ACCESS_TOKEN= LINE_GROUP_ID= LINE_NOTIFY_USERS= LINE_ADMIN_USER_ID= node server.js`. Blanking the LINE variables matters, because otherwise test requests send real messages to the staff LINE group (dotenv never overrides variables that are already set). Uploads from the test instance land in the real `public/uploads/`, so delete them afterwards. Exercise the endpoints with `curl`, then drop the DB.
 - Frontend edits in `public/` go live the moment they're saved. For risky UI changes, work on a copy page first or test through the port-3299 instance, which serves `public/` too.
 
 Conventions to follow (match the existing code):
 - **Endpoint:** add it inside the route factory. Apply `authenticateJWT` (plus `isAdmin` for admin routes) per route. Use `pool.query` with `$n` parameters, and respond with `res.status(...).json({ message: '<Thai text>' })` on errors. Use `pool.connect()` + `BEGIN/COMMIT/ROLLBACK` for multi-statement writes (see `PUT /api/admin/request/:id/status`). Anything that must stay private must live under `/api/`, because nginx serves everything else from `public/`.
 - **Page:** copy an existing page's `<head>`/navbar. Load the Bootstrap CDN, `language.js`, `main.js`, then your script (admin pages add `admin-common.js`). Read the token from `localStorage` and send `Authorization: Bearer`. Put every visible string in `data-i18n` keys in all three locale files.
-- **Rendering:** the existing code builds tables with `innerHTML` template strings. When you insert user-controlled values (names, addresses, notes), escape them or use `textContent`. The existing pages don't, see "Known bugs".
+- **Rendering:** the existing code builds tables with `innerHTML` template strings. When you insert user-controlled values (names, addresses, notes), wrap them in `escapeHtml()` (defined in `main.js`) or use `textContent`. This includes values read back from the DOM with `textContent` and then re-inserted as HTML, as in the print receipt in `request-detail.js`. Never embed data inside inline `onclick` JS strings.
 - **Libraries** come from CDNs: Bootstrap 5.3, Chart.js, jsPDF + autotable, SheetJS `xlsx`, `html2canvas` and `qrcode`. Thai PDF fonts are in `thai-fonts.js`. There is no npm frontend tooling, so add new libraries the same way.
 - **Schema change:** apply the SQL by hand in production, then regenerate `database/schema.sql` (see "Database schema") and commit both the code and the schema together.
 
-## Known bugs (found 2026-09-28, not yet fixed)
+## Known bugs
 
-- **Uploads with long Thai filenames fail (500, `ENAMETOOLONG`).** multer names files `Date.now() + '-' + originalname`, and `originalname` arrives as mis-decoded UTF-8, so it can exceed the 255-byte limit. This appears repeatedly in the pm2 error log. The fix is to generate the filename from timestamp + random + extension only.
-- **LINE notifications often fail with HTTP 429** (129 times in the last 2,000 error-log lines). The most likely cause is the LINE Messaging API monthly free-message quota; the log shows only the status code. Staff miss new-request alerts, and failures are only logged.
-- **Stored XSS:** student-supplied `full_name` and status-history `note` are inserted with `innerHTML` in admin pages (`admin-requests.js`, `admin-dashboard.js`, `users.js`, `request-detail.js`, `status.js`). The admin JWT lives in `localStorage`.
+Fixed on 2026-09-28:
+- Uploads with long Thai filenames (`ENAMETOOLONG`). Files are now named `<timestamp>-<random hex><ext>`, and older uploads keep their original names.
+- Stored XSS in admin and student pages. All user data in HTML templates now goes through `escapeHtml`.
+- The app crashed at startup when no LINE token was set. The LINE client is now created lazily.
+
+Still open:
+- **LINE notifications fail with HTTP 429 once the LINE Messaging API monthly free-message quota runs out** (confirmed by the owner). Staff then miss new-request alerts, and failures are only logged. Options: a paid LINE plan, fewer messages (e.g. a daily digest), or a second channel such as email.
 - SQL injection via `?lang=`. `/api/test-line` and `/api/line-config` have no auth. The server trusts the client-sent `total_price`. See also "Request data model" and "Database schema".
 - `GET /api/admin/requests` ignores `page`/`limit`, so `admin-requests.js` fetches every request and paginates client-side. Expect this to slow down as data grows (~3,000 requests as of 2026-09).
 - `jwt expired` errors from `GET /api/auth/user` flood the error log. This is expected when a session is over 24h old; it's noise, not a bug.

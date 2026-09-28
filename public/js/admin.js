@@ -1,3 +1,6 @@
+// escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
+if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+
 // ตรวจสอบว่าเป็นผู้ดูแลระบบหรือไม่
 document.addEventListener('DOMContentLoaded', () => {
   console.log('Admin page loaded');
@@ -115,9 +118,9 @@ function displayRecentRequests(requests) {
     
     row.innerHTML = `
       <td data-label="รหัสคำขอ">${request.id}</td>
-      <td data-label="ชื่อนักศึกษา">${request.full_name}</td>
-      <td data-label="รหัสนักศึกษา">${request.student_id}</td>
-      <td data-label="ประเภทเอกสาร">${request.document_name}</td>
+      <td data-label="ชื่อนักศึกษา">${escapeHtml(request.full_name)}</td>
+      <td data-label="รหัสนักศึกษา">${escapeHtml(request.student_id)}</td>
+      <td data-label="ประเภทเอกสาร">${escapeHtml(request.document_name)}</td>
       <td data-label="วันที่ขอ">${formatDate(request.created_at, 'th')}</td>
       <td data-label="สถานะ">${createStatusBadge(request.status)}</td>
       <td data-label="การดำเนินการ">

@@ -1,3 +1,14 @@
+// ป้องกัน XSS: ใช้ครอบข้อมูลจากผู้ใช้ทุกครั้งที่นำไปใส่ใน innerHTML หรือ template HTML
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ตรวจสอบสถานะการล็อกอินและอัปเดตเมนู
 function checkAuthStatus() {
   const token = localStorage.getItem('token');

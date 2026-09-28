@@ -1,3 +1,6 @@
+// escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
+if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+
 // ตัวแปรสำหรับ Pagination
 let currentPage = 1;
 let pageSize = 10;
@@ -232,9 +235,9 @@ function displayAllRequests(requests) {
       
       row.innerHTML = `
         <td data-label="รหัสคำขอ">${request.id || '-'}</td>
-        <td data-label="ชื่อนักศึกษา">${request.full_name || request.fullName || '-'}</td>
-        <td data-label="รหัสนักศึกษา">${request.student_id || request.studentId || '-'}</td>
-        <td data-label="ประเภทเอกสาร">${request.document_name || request.documentName || request.document_type || '-'}</td>
+        <td data-label="ชื่อนักศึกษา">${escapeHtml(request.full_name || request.fullName || '-')}</td>
+        <td data-label="รหัสนักศึกษา">${escapeHtml(request.student_id || request.studentId || '-')}</td>
+        <td data-label="ประเภทเอกสาร">${escapeHtml(request.document_name || request.documentName || request.document_type || '-')}</td>
         <td data-label="วันที่ขอ">${formatDate(request.created_at || request.createdAt) || '-'}</td>
         <td data-label="วิธีการรับ">
           ${(request.delivery_method || request.deliveryMethod) === 'pickup' ? 

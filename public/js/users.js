@@ -1,3 +1,6 @@
+// escapeHtml อยู่ใน main.js — สำรองไว้เผื่อ browser/Cloudflare ยัง cache main.js เวอร์ชันเก่าอยู่
+if (typeof escapeHtml !== 'function') { window.escapeHtml = function (v) { return v === null || v === undefined ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }; }
+
 // ตรวจสอบว่าเป็นผู้ดูแลระบบหรือไม่
 document.addEventListener('DOMContentLoaded', () => {
   checkAdmin();
@@ -177,11 +180,11 @@ function displayUsers(users) {
       window.i18n[window.currentLang].admin.users.viewDetails : 'ดูรายละเอียด';
     
     row.innerHTML = `
-      <td data-label="${studentIdLabel}">${user.student_id}</td>
-      <td data-label="${fullNameLabel}">${user.full_name}</td>
-      <td data-label="${emailLabel}">${user.email}</td>
-      <td data-label="${phoneLabel}">${user.phone}</td>
-      <td data-label="${facultyLabel}">${user.faculty}</td>
+      <td data-label="${studentIdLabel}">${escapeHtml(user.student_id)}</td>
+      <td data-label="${fullNameLabel}">${escapeHtml(user.full_name)}</td>
+      <td data-label="${emailLabel}">${escapeHtml(user.email)}</td>
+      <td data-label="${phoneLabel}">${escapeHtml(user.phone)}</td>
+      <td data-label="${facultyLabel}">${escapeHtml(user.faculty)}</td>
       <td data-label="${roleLabel}">
         <span class="badge ${user.role === 'admin' ? 'bg-danger' : 'bg-primary'}">
           ${user.role === 'admin' ? adminText : studentText}
